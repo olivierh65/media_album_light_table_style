@@ -1,0 +1,11 @@
+name: Media Album Light Table Style
+type: module
+description: 'Dedicated Views style plugin for Media Album Light Table rendering with drag-and-drop support.'
+core_version_requirement: ^10 || ^11
+package: Custom
+dependencies:
+  - drupal:media
+  - drupal:field
+  - drupal:taxonomy
+  - drupal:views
+  - media_album_av_common

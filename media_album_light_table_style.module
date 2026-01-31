@@ -1,0 +1,25 @@
+<?php
+
+/**
+ * @file
+ * Primary module hooks for Media Album Light Table Style module.
+ */
+
+/**
+ * Implements hook_theme().
+ */
+function media_album_light_table_style_theme($existing, $type, $theme, $path) {
+  return [
+    'views_view_media_album_light_table' => [
+      'variables' => [
+        'theme' => [],
+        'view' => [],
+        'groups' => [],
+        'options' => [],
+        'attributes' => [],
+      ],
+      'path' => $path . '/templates',
+      'template' => 'views-view-media-album-light-table',
+    ],
+  ];
+}
