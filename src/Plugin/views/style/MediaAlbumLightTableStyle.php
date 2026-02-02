@@ -12,7 +12,7 @@ use Drupal\views\Plugin\views\style\StylePluginBase;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 use Drupal\image\Entity\ImageStyle;
 use Drupal\Core\StreamWrapper\StreamWrapperManagerInterface;
-use Drupal\media_album_light_table_style\Traits\MediaTrait;
+use Drupal\media_album_av_common\Traits\MediaTrait;
 use Drupal\media_album_av_common\Service\AlbumGroupingConfigService;
 use Drupal\node\Entity\Node;
 
@@ -267,31 +267,31 @@ class MediaAlbumLightTableStyle extends StylePluginBase {
     ];
 
     // Zone 2: VBO Actions.
-    $form['field_mapping']['vbo'] = [
-      '#type' => 'details',
-      '#title' => $this->t('VBO Actions Zone'),
-      '#open' => !empty($this->options['field_mapping']['vbo']['enabled']),
+    /*     $form['field_mapping']['vbo'] = [
+    '#type' => 'details',
+    '#title' => $this->t('VBO Actions Zone'),
+    '#open' => !empty($this->options['field_mapping']['vbo']['enabled']),
     ];
 
     $form['field_mapping']['vbo']['enabled'] = [
-      '#type' => 'checkbox',
-      '#title' => $this->t('Enable VBO actions zone'),
-      '#default_value' => $this->options['field_mapping']['vbo']['enabled'] ?? FALSE,
+    '#type' => 'checkbox',
+    '#title' => $this->t('Enable VBO actions zone'),
+    '#default_value' => $this->options['field_mapping']['vbo']['enabled'] ?? FALSE,
     ];
 
     $form['field_mapping']['vbo']['field'] = [
-      '#type' => 'select',
-      '#title' => $this->t('VBO field'),
-      '#options' => $field_options,
-      '#default_value' => $this->options['field_mapping']['vbo']['field'] ?? '',
-      '#description' => $this->t('Select the VBO actions field'),
-      '#states' => [
-        'visible' => [
-          ':input[name="style_options[field_mapping][vbo][enabled]"]' => ['checked' => TRUE],
-        ],
-      ],
+    '#type' => 'select',
+    '#title' => $this->t('VBO field'),
+    '#options' => $field_options,
+    '#default_value' => $this->options['field_mapping']['vbo']['field'] ?? '',
+    '#description' => $this->t('Select the VBO actions field'),
+    '#states' => [
+    'visible' => [
+    ':input[name="style_options[field_mapping][vbo][enabled]"]' => ['checked' => TRUE],
+    ],
+    ],
     ];
-
+     */
     // Zone 3: Name.
     $form['field_mapping']['name'] = [
       '#type' => 'details',
@@ -452,15 +452,6 @@ class MediaAlbumLightTableStyle extends StylePluginBase {
     $build['#attached']['library'][] = 'media_album_av_common/draggable-flexgrid-light-table-groups';
     // Load custom media item selection library.
     $build['#attached']['library'][] = 'media_album_av_common/draggable-flexgrid-light-table-selection';
-
-    // Load VBO libraries if the view uses Views Bulk Operations.
-    // This ensures proper styling of checkboxes and bulk actions dropbutton.
-    if (!empty($this->view->getHandlers('field')['views_bulk_operations_bulk_form'])) {
-      // Load the official dropbutton library (maps to correct theme CSS).
-      $build['#attached']['library'][] = 'core/drupal.dropbutton';
-      // Load VBO specific libraries and behaviors.
-      $build['#attached']['library'][] = 'views_bulk_operations/vbo';
-    }
 
     // Ajouter les settings pour JavaScript.
     $build['#attached']['drupalSettings']['draggableFlexGrid'] = [
@@ -639,6 +630,9 @@ class MediaAlbumLightTableStyle extends StylePluginBase {
 
     $processed = [];
 
+    // Get term sorting configuration if available.
+    $term_sort_config = $this->getTermSortConfiguration($groups, $result, $depth, $grouping);
+
     foreach ($groups as $group_key => $group_data) {
       $idx = rand();
       if ($album_grp == NULL || $depth == 0) {
@@ -789,6 +783,8 @@ class MediaAlbumLightTableStyle extends StylePluginBase {
         // Term could not be loaded.
         $term = '!--!';
       }
+      // Convert group_key to string to match JSON keys.
+      $group_key_str = (string) $group_key;
       $group_item = [
         'group_title' => (is_object($term) ? $term->label() : $term) ?? '--',
         'level' => $group_data['level'] ?? $depth,
@@ -803,6 +799,7 @@ class MediaAlbumLightTableStyle extends StylePluginBase {
         'field_type' => $field_type,
         'field_target_type' => $field_target_type,
         'field_name' => $field_name ?? $target_field_name ?? NULL,
+        'term_weight' => $term_sort_config[$group_key_str] ?? 0,
       ];
 
       // Check if this group contains rows (final results)
@@ -834,7 +831,95 @@ class MediaAlbumLightTableStyle extends StylePluginBase {
       $processed[] = $group_item;
     }
 
+    // Sort groups by term weight if configuration exists.
+    if (!empty($term_sort_config)) {
+      usort($processed, function ($a, $b) {
+        return ($a['term_weight'] ?? 0) <=> ($b['term_weight'] ?? 0);
+      });
+    }
+
     return $processed;
+  }
+
+  /**
+   * Get term sort configuration for a grouping level from node's grouping field.
+   *
+   * @param int $level
+   *   The grouping level (0, 1, 2, etc.).
+   *
+   * @return array
+   *   Array mapping term IDs to weights, or empty array if not available.
+   */
+  private function getTermSortConfiguration(array $groups, array $result, int $level, array $grouping) {
+    try {
+      // Get the first node (album) from the view results.
+      if (empty($groups) || empty($result)) {
+        return [];
+      }
+
+      $row = reset($result);
+      $entity = $row->_entity ?? NULL;
+
+      if (!$entity || $entity->getEntityTypeId() !== 'node') {
+        return [];
+      }
+
+      // The configuration is stored in a dynamic field (from settings), not a hardcoded field!
+      $config = \Drupal::config('media_album_av.settings');
+      $config_field = $config->get('grouping_config_field') ?? 'field_media_album_av_grouping';
+
+      if (!$entity->hasField($config_field)) {
+        \Drupal::logger('media_album_light_table_style')->debug(
+          'DEBUG: Entity does not have config field @field',
+          ['@field' => $config_field]
+        );
+        return [];
+      }
+
+      // Load all grouping configurations from the configuration field.
+      $grouping_data = $entity->get($config_field)->getValue();
+
+      \Drupal::logger('media_album_light_table_style')->debug(
+        'DEBUG: At level @level, found @count config items',
+        ['@level' => $level, '@count' => count($grouping_data)]
+      );
+
+      // Find the configuration for this specific level (index by position).
+      if (isset($grouping_data[$level]) && !empty($grouping_data[$level]['value'])) {
+        $config = json_decode($grouping_data[$level]['value'], TRUE);
+        \Drupal::logger('media_album_light_table_style')->debug(
+          'DEBUG: Decoded config at level @level: field=@field, terms_count=@count',
+          [
+            '@level' => $level,
+            '@field' => $config['field'] ?? 'N/A',
+            '@count' => !empty($config['terms']) ? count($config['terms']) : 0,
+          ]
+        );
+        if (!empty($config['terms'])) {
+          \Drupal::logger('media_album_light_table_style')->debug(
+            'Found term config at level @level with weights: @config',
+            ['@level' => $level, '@config' => json_encode($config['terms'])]
+          );
+          // Return term weights indexed by term ID (as strings).
+          return $config['terms'];
+        }
+      }
+      else {
+        \Drupal::logger('media_album_light_table_style')->debug(
+          'DEBUG: No data at index @level (available: @count items)',
+          ['@level' => $level, '@count' => count($grouping_data)]
+        );
+      }
+
+      return [];
+    }
+    catch (\Exception $e) {
+      \Drupal::logger('media_album_light_table_style')->error(
+        'Error getting term sort configuration at level @level: @message',
+        ['@level' => $level, '@message' => $e->getMessage()]
+          );
+      return [];
+    }
   }
 
   /**
