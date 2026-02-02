@@ -25,7 +25,7 @@
 	{% set row_index = media_item.row_index %}
 
 	<div
-		class="draggable-flexgrid__item media-item js-draggable-item media-light-table-media-item" data-entity-id="{{ infos.id }}" data-id="{{ infos.id }}" data-media-id="{{ infos.id }}" style="flex: 0 0 calc(100% / {{ columns }} - {{ gap }});">
+		class="draggable-flexgrid__item media-item js-draggable-item media-light-table-media-item"  style="flex: 0 0 calc(100% / {{ columns }} - {{ gap }});">
 
 		{# Main content area with groups #}
 		<div
@@ -34,7 +34,10 @@
 			{# Thumbnail Field #}
 			{% if field_mapping_config.thumbnail.enabled %}
 				<div class="draggable-flexgrid__group-1 media-light-table-thumbnail-field">
-					<div class="draggable-flexgrid__thumbnail media-light-table-thumbnail" data-orig-field-type="{{ group.field_type }}" data-orig-field-name="{{ group.field_name }}">
+					<div class="draggable-flexgrid__thumbnail media-light-table-thumbnail"
+						data-entity-id="{{ infos.id }}" data-media-id="{{ infos.id }}"
+						data-termid="{{group.termid}}"
+						data-orig-field-type="{{ group.field_type }}" data-orig-field-name="{{ group.field_name }}">
 						<span class="field-content media-light-field-content">
 							<img src="{{ thumbnail.thumbnail_url }}" alt="{{ image_alt }}" title="{{ infos.label }} ({{ 'ID' }}: {{ infos.id }})" width="{{ thumbnail.thumbnail_width }}" height="{{ thumbnail.thumbnail_height }}" class="draggable-flexgrid__image media-light-table-image"/>
 						</span>
@@ -165,11 +168,11 @@
 		{% if albums|length == 0 %}
 			{# only taxonmy are elligible to be draggable #}
 			{% if group.field_target_type == "taxonomy_term" %}
-				<div class="media-grid media-light-table-album-container  {% if group.field_target_type == " taxonomy_term" %}album-group-{{ album_group }} js-draggable-flexgrid draggable-flexgrid__grid {% endif %} empty-state" data-album-id="empty-album" data-album-grp="album-group-{{ album_group }}" data-termid="{{ termid }}" data-nid="{{ nid }}" data-columns="{{ columns }}" data-gap="{{ gap }}" data-field-type="{{ group.field_type }}" data-field-name="{{ group.field_name }}" style="display: flex; flex-wrap: wrap; gap: {{ gap }};" data-level="{{ group.level }}"></div>
+				<div class="media-grid media-light-table-album-container {% if group.field_target_type == " taxonomy_term" %}album-group-{{ album_group }} js-draggable-flexgrid draggable-flexgrid__grid {% endif %} empty-state" data-album-id="empty-album" data-album-grp="album-group-{{ album_group }}" data-termid="{{ termid }}" data-nid="{{ nid }}" data-columns="{{ columns }}" data-gap="{{ gap }}" data-field-type="{{ group.field_type }}" data-field-name="{{ group.field_name }}" style="display: flex; flex-wrap: wrap; gap: {{ gap }};" data-level="{{ group.level }}"></div>
 			{% endif %}
 		{% else %}
 			{% for album in albums %}
-				<div class="media-grid media-light-table-album-container  {% if group.field_target_type == " taxonomy_term" %}album-group-{{ album_group }} js-draggable-flexgrid draggable-flexgrid__grid {% endif %}{% if not album.medias %} empty-state{% endif %}" data-album-id="{{ album.id }}" data-album-grp="album-group-{{ album_group }}" data-termid="{{ termid }}" data-nid="{{ nid }}" data-gap="{{ gap }}" data-field-type="{{ group.field_type }}" data-field-name="{{ group.field_name }}" style="display: flex; flex-wrap: wrap; gap: {{ gap }};" data-level="{{ group.level }}">
+				<div class="media-grid media-light-table-album-container {% if group.field_target_type == " taxonomy_term" %}album-group-{{ album_group }} js-draggable-flexgrid draggable-flexgrid__grid {% endif %}{% if not album.medias %} empty-state{% endif %}" data-album-id="{{ album.id }}" data-album-grp="album-group-{{ album_group }}" data-termid="{{ termid }}" data-nid="{{ nid }}" data-gap="{{ gap }}" data-field-type="{{ group.field_type }}" data-field-name="{{ group.field_name }}" style="display: flex; flex-wrap: wrap; gap: {{ gap }};" data-level="{{ group.level }}">
 					{% if album.medias %}
 						{% for media_item in album.medias %}
 							{# Passer view et row_index à la macro #}

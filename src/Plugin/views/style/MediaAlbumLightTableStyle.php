@@ -802,7 +802,7 @@ class MediaAlbumLightTableStyle extends StylePluginBase {
         'groupid' => 'album-group-' . $idx,
         'field_type' => $field_type,
         'field_target_type' => $field_target_type,
-        'field_name' => $field_name,
+        'field_name' => $field_name ?? $target_field_name ?? NULL,
       ];
 
       // Check if this group contains rows (final results)
