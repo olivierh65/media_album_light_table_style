@@ -452,6 +452,9 @@ class MediaAlbumLightTableStyle extends StylePluginBase {
     $build['#attached']['library'][] = 'media_album_av_common/draggable-flexgrid-light-table-groups';
     // Load custom media item selection library.
     $build['#attached']['library'][] = 'media_album_av_common/draggable-flexgrid-light-table-selection';
+    // Load media modal libraries (zoom and edit).
+    $build['#attached']['library'][] = 'media_album_av_common/media-light-table-modal';
+    $build['#attached']['library'][] = 'media_album_av_common/media-light-table-edit-modal';
 
     // Ajouter les settings pour JavaScript.
     $build['#attached']['drupalSettings']['draggableFlexGrid'] = [
@@ -643,6 +646,7 @@ class MediaAlbumLightTableStyle extends StylePluginBase {
       $field_type = NULL;
       $field_target_type = NULL;
       $field_name = NULL;
+      $field_entity_type = NULL;
       $node_id = NULL;
       if (!empty($grouping[$depth])) {
         $grouping_field = $grouping[$depth]['field'] ?? NULL;
@@ -654,6 +658,7 @@ class MediaAlbumLightTableStyle extends StylePluginBase {
 
           if ($entity) {
             $entity_type_id = $entity->getEntityTypeId();
+            $field_entity_type = $entity_type_id;
 
             // Use entity_field.manager service to get field definitions.
             $field_manager = \Drupal::service('entity_field.manager');
@@ -713,6 +718,8 @@ class MediaAlbumLightTableStyle extends StylePluginBase {
                         if ($target_type) {
                           // Récupérer le field handler['field'] sur l'entité cible.
                           $target_field_name = $handler['field'];
+                          // Update field_entity_type to the target entity type.
+                          $field_entity_type = $target_type;
 
                           // Charger le FieldStorageConfig.
                           $target_field_storage_def = FieldStorageConfig::loadByName($target_type, $target_field_name);
@@ -785,6 +792,16 @@ class MediaAlbumLightTableStyle extends StylePluginBase {
       }
       // Convert group_key to string to match JSON keys.
       $group_key_str = (string) $group_key;
+
+      // Build prefixed field name with entity type prefix (e.g., "media:field_name").
+      $prefixed_field_name = NULL;
+      if (!empty($field_name) && !empty($field_entity_type)) {
+        $prefixed_field_name = $field_entity_type . ':' . $field_name;
+      }
+      elseif (!empty($target_field_name) && !empty($field_entity_type)) {
+        $prefixed_field_name = $field_entity_type . ':' . $target_field_name;
+      }
+
       $group_item = [
         'group_title' => (is_object($term) ? $term->label() : $term) ?? '--',
         'level' => $group_data['level'] ?? $depth,
@@ -798,7 +815,7 @@ class MediaAlbumLightTableStyle extends StylePluginBase {
         'groupid' => 'album-group-' . $idx,
         'field_type' => $field_type,
         'field_target_type' => $field_target_type,
-        'field_name' => $field_name ?? $target_field_name ?? NULL,
+        'field_name' => $prefixed_field_name,
         'term_weight' => $term_sort_config[$group_key_str] ?? 0,
       ];
 
