@@ -1,0 +1,30 @@
+media_light_table_execute_action:
+  path: '/media-light-table/execute-action'
+  methods: ['POST']
+  defaults:
+    _controller: '\Drupal\media_album_light_table_style\Controller\MediaActionController::executeAction'
+  requirements:
+    _permission: 'administer media drop'
+
+media_light_table_action_config:
+  path: '/media-light-table/action-config/{action_id}'
+  methods: ['POST']
+  defaults:
+    _controller: '\Drupal\media_album_light_table_style\Controller\MediaActionController::getActionConfig'
+  requirements:
+    _permission: 'administer media'
+
+media_light_table_action_dialog:
+  path: '/media-light-table/action-dialog/{action_id}'
+  methods: ['POST']
+  defaults:
+    _controller: '\Drupal\media_album_light_table_style\Controller\MediaActionController::showActionDialog'
+  requirements:
+    _permission: 'administer media'
+media_light_table_actions_form:
+  path: '/media-light-table/actions-toolbar/{album_grp}'
+  methods: ['POST']
+  defaults:
+    _controller: '\Drupal\media_album_light_table_style\Controller\MediaActionController::renderActionsToolbar'
+  requirements:
+    _permission: 'administer media'

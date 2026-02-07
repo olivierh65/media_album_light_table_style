@@ -1,0 +1,7 @@
+services:
+  media_album_light_table_style.media_action:
+    class: Drupal\media_album_light_table_style\Service\MediaActionService
+    arguments:
+      - '@plugin.manager.action'
+      - '@entity_type.manager'
+      - '@current_user'
