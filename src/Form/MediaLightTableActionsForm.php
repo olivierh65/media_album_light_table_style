@@ -188,11 +188,6 @@ class MediaLightTableActionsForm extends FormBase {
       '#type' => 'container',
       '#attributes' => ['id' => 'box-container'],
     ];
-    // The box contains some markup that we can change on a submit request.
-    $form['container']['box'] = [
-      '#type' => 'markup',
-      '#markup' => '<h1>Initial markup for box</h1>',
-    ];
 
     $form['submit'] = [
       '#type' => 'submit',

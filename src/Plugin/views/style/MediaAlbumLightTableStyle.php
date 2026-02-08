@@ -722,7 +722,7 @@ class MediaAlbumLightTableStyle extends StylePluginBase {
           'delayOnTouchOnly' => TRUE,
           'swapThreshold' => 0.85,
           'touchStartThreshold' => 4,
-          'dragHandle' => "." . $css_selectors['dragHandle'],
+          'handle' => "." . $css_selectors['dragHandle'],
           'draggable' => "." . $css_selectors['mediaItem'],
           'ghostClass' => 'sortable-ghost',
           'chosenClass' => 'sortable-chosen',
@@ -1232,7 +1232,7 @@ class MediaAlbumLightTableStyle extends StylePluginBase {
       }
 
       $media_thumbnail = $this->getMediaThumbnail($media, $this->options['image_thumbnail_style'] ?? NULL);
-      $media_info = $this->getMediaRowFullInfo($media, $this->options['image_thumbnail_style'] ?? NULL);
+      $media_info = $this->getMediaRowFullInfo($row, $this->options['image_thumbnail_style'] ?? NULL);
       if ($media_thumbnail || $media_info) {
         $medias[] = [
           'thumbnail' => $media_thumbnail,
