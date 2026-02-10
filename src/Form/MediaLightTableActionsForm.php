@@ -2,6 +2,7 @@
 
 namespace Drupal\media_album_light_table_style\Form;
 
+use Drupal\Core\Url;
 use Drupal\Core\Form\FormBase;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\Ajax\AjaxResponse;
@@ -85,7 +86,7 @@ class MediaLightTableActionsForm extends FormBase {
 
     $form['info_action_wrapper']['group_info']['counter_wrapper']['save_button'] = [
       '#type' => 'submit',
-      '#value' => $this->t('Sauvegarder le nouvel ordre'),
+      '#value' => $this->t('Sauvegarder l\'ordre'),
        // To identify the button in the ajax prepare function.
       // '#name' => 'save-button-' . $album_grp,.
       '#id' => 'save-button-' . $album_grp,
@@ -142,45 +143,38 @@ class MediaLightTableActionsForm extends FormBase {
       ];
 
       $form['info_action_wrapper']['group_action']['actions_toolbar']['execute'] = [
-        '#type' => 'submit',
-        '#value' => $this->t('Execute'),
-        // To identify the button in the ajax prepare function.
-        // '#name' => 'execute-button-' . $album_grp,
-      // Handler pour le submit complet.
-        // '#submit' => ['::mySubmitHandler'],
-        // '#executes_submit_callback' => TRUE,.
+        '#type' => 'link',
+        '#title' => $this->t('Execute'),
+        '#url' => Url::fromRoute('media_album_av_common.action_form', [
+          'action_id' => '__ACTION__',
+          'album_grp' => $album_grp,
+        ]),
         '#id' => 'execute-button-' . $album_grp,
-      // Pas de validation.
-        // '#limit_validation_erors' => [],
-        // '#submit' => [],.
         '#attributes' => [
-          'class' => ['media-light-table-execute-action', 'media-light-table-ajax-button1', 'button', 'js-form-submit', 'form-submit'],
+          'class' => [
+            'media-light-table-execute-action',
+            'button',
+            'js-form-submit',
+          ],
           'data-album-grp' => $album_grp,
           'data-unique-key' => 'execute_' . $album_grp,
           'data-prepare-function' => 'prepareActionData',
         ],
         '#ajax' => [
-          'callback' => '::callbackExecuteAction',
-          // 'callback' => [static::class, 'optionsFormEntitySourceSubmitAjax'],
-          'wrapper' => 'group-action-wrapper-' . $album_grp,
           'progress' => [
             'type' => 'throbber',
-            'message' => $this->t('Executing...'),
+            'message' => $this->t('Loading...'),
           ],
-          // 'trigger_as' => ['value' => 'execute-button-' . $album_grp, 'name' => 'op'],
         ],
         '#states' => [
           'disabled' => [
             '#media-light-table-action-select-' . $album_grp => ['value' => 'none'],
           ],
         ],
+        '#attached' => [
+          'library' => ['core/drupal.dialog.ajax'],
+        ],
       ];
-      /* $form['info_action_wrapper']['group_action']['actions_toolbar']['action_data'] = [
-      '#type' => 'value',
-      '#attributes' => [
-      'id' => 'action-data-' . $album_grp,
-      ],
-      ]; */
     }
 
     // This container wil be replaced by AJAX.
@@ -279,8 +273,8 @@ class MediaLightTableActionsForm extends FormBase {
     $media_order = $data['media_order'] ?? NULL;
 
     if (!empty($media_order) || (($data['action']) ?? '') === 'reorg') {
-      $mediaOrderService = \Drupal::service('media_album_av_common.media_order');
-      $result = $mediaOrderService->orderMediaItems($media_order);
+      $mediaOrderService = \Drupal::service('media_album_av_common.media_order_service');
+      $result = $mediaOrderService->saveMediaOrder($media_order);
       $album_grp = $media_order[0]['album_grp'] ?? NULL;
 
       // Afficher le message approprié en fonction du résultat.
