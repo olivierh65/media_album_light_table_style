@@ -1,0 +1,32 @@
+media-light-table:
+  version: 1.x
+  css:
+    theme:
+      css/media-light-table.css: {}
+      css/media-light-table-controls.css: {}
+      css/media-light-table-groups.css: {}
+      css/media-light-table-edit-modal.css: {}
+      css/media-light-table-modal.css: {}
+  js:
+    js/media-light-table-button.js: {}
+    js/media-light-table.js: {}
+    js/media-light-table-filters.js: {}
+    js/media-light-table-more-info.js: {}
+    js/media-light-table-edit-modal.js: {}
+    js/media-light-table-modal.js: {}
+  dependencies:
+    - core/drupal
+    - core/once
+    - media_album_av_common/sortablejs
+
+media-light-table-selection:
+  version: 1.x
+  css:
+    theme:
+      css/media-light-table-selection.css: {}
+  js:
+    js/media-light-table-selection.js: {}
+  dependencies:
+    - core/drupal
+    - core/once
+    - media_album_av_common/sortablejs

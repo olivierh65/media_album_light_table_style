@@ -668,9 +668,9 @@ class MediaAlbumLightTableStyle extends StylePluginBase {
     $build['#attached']['library'][] = 'media_album_av_common/dragula';
     $build['#attached']['library'][] = 'media_album_av_common/sortablejs';
     $build['#attached']['library'][] = 'media_album_av_common/draggable-flexgrid';
-    $build['#attached']['library'][] = 'media_album_av_common/draggable-flexgrid-light-table-groups';
+    $build['#attached']['library'][] = 'media_album_light_table_style/media-light-table';
     // Load custom media item selection library.
-    $build['#attached']['library'][] = 'media_album_av_common/draggable-flexgrid-light-table-selection';
+    $build['#attached']['library'][] = 'media_album_light_table_style/media-light-table-selection';
     // Load media modal libraries (zoom and edit).
     $build['#attached']['library'][] = 'media_album_av_common/media-light-table-modal';
     // $build['#attached']['library'][] = 'media_album_av_common/media-light-table-edit-modal';

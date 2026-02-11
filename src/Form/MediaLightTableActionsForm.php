@@ -177,11 +177,7 @@ class MediaLightTableActionsForm extends FormBase {
       ];
     }
     $form['#attached']['library'] = [
-      'media_album_av_common/draggable-flexgrid',
-      'media_album_av_common/draggable-flexgrid-light-table-groups',
-      'media_album_av_common/draggable-flexgrid-light-table-selection',
-      'media_album_av_common/media-light-table-modal',
-      'media_album_light_table_style/media-light-table-actions',
+      'media_album_light_table_style/media-light-table',
     ];
 
     // This container wil be replaced by AJAX.
