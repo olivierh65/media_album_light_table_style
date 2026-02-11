@@ -20,3 +20,5 @@ yarn-error.log
 # Composer files (in case someone runs composer in the module)
 vendor/
 composer.lock
+rapport_analyse.json
+rapport_analyse.txt
