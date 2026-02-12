@@ -8,6 +8,7 @@ use Drupal\Core\Form\FormState;
 use Drupal\Component\Plugin\ConfigurableInterface;
 use Drupal\Core\Controller\ControllerBase;
 use Drupal\media_album_light_table_style\Service\MediaActionService;
+use Drupal\media_album_light_table_style\Form\MediaLightTableActionsForm;
 use Drupal\Core\Form\FormBuilderInterface;
 use Drupal\Core\Render\RendererInterface;
 use Symfony\Component\DependencyInjection\ContainerInterface;
@@ -264,7 +265,7 @@ class MediaActionController extends ControllerBase {
 
     // Build and render the form.
     $form = $this->formBuilder()->getForm(
-      'Drupal\media_album_light_table_style\Form\MediaLightTableActionsForm',
+      MediaLightTableActionsForm::class,
       $form_state
     );
 

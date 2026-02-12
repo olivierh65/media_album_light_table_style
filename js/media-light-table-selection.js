@@ -189,7 +189,9 @@
           e.stopPropagation();
           e.stopImmediatePropagation();
 
-          const albumGrp = this.dataset.albumGrp;
+          // preparation des données et ou URL faite dans le beforeSerialize,
+          // on n'a plus qu'à laisser faire Drupal AJAX
+          /* const albumGrp = this.dataset.albumGrp;
           const action = document.querySelector(
             `#media-light-table-action-select-${albumGrp}`,
           ).value;
@@ -198,7 +200,7 @@
           Drupal.ajax({
             url: this.href.replace("__ACTION__", action),
             submit: { prepared_media_data: JSON.stringify(data) },
-          }).execute();
+          }).execute(); */
         });
       });
     },
@@ -231,9 +233,14 @@
 
             // Vérifier si c'est un de nos boutons
             const albumGrp = $button.data("album-grp");
-            const prepareFuncName = $button.data("prepare-function");
+            const prepareFuncName = $button.data("prepare-function"); // Récupérer le nom de la fonction de préparation depuis les data attributes
+            const actionSelectId = $button.data("action-select-id"); // Récupérer l'ID du select d'action depuis les data attributes
 
-            if (!albumGrp || !prepareFuncName) {
+            if (
+              (!albumGrp || !prepareFuncName) && // Prepare function for actions
+              (!albumGrp || !actionSelectId)
+            ) {
+              // Simple button (Cancel, OK, Save reorg)
               console.log("❌ Pas notre bouton");
               return;
             }
@@ -241,6 +248,25 @@
             console.log("✅ Notre bouton détecté !");
             console.log("Album:", albumGrp);
             console.log("Function:", prepareFuncName);
+            console.log("Action Select ID:", actionSelectId);
+
+            // options.data est un objet à ce stade (avant sérialisation)
+            options.data = options.data || {};
+
+            if (actionSelectId) {
+              // Bouton d'action avec un l'identifiant a recuperer dans le select
+              // Récupérer l'action sélectionnée
+              const selectedAction =
+                document.getElementById(actionSelectId)?.value;
+
+              // Mettre à jour l'URL avec l'action
+              if (selectedAction && this.url) {
+                this.url = this.url.replace("__ACTION__", selectedAction);
+                options.url = this.url; // S'assurer que l'option URL est également mise à jour
+                options.data.url = this.url; // S'assurer que l'option URL est également mise à jour
+                console.log("✅ URL mise à jour:", this.url);
+              }
+            }
 
             // ✅ Préparer les données
             if (
@@ -253,8 +279,6 @@
 
               if (preparedData) {
                 // ✅ Ajouter directement dans options.data
-                // options.data est un objet à ce stade (avant sérialisation)
-                options.data = options.data || {};
                 options.data.prepared_media_data = JSON.stringify(preparedData);
 
                 console.log("✅ Données injectées dans options.data");
@@ -323,7 +347,10 @@
               if (!grid._sortableInstance?.multiDrag) { */
               e.preventDefault();
               e.stopPropagation();
-              // e.stopImmediatePropagation();
+              if (grid._sortableInstance?.multiDrag) {
+                // To avoid conflicts with Sortable's multi-drag selection, we stop propagation to let Sortable handle it
+                e.stopImmediatePropagation();
+              }
 
               if (e.shiftKey) {
                 const gridItems = Array.from(

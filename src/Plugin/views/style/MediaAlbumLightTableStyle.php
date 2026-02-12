@@ -16,6 +16,7 @@ use Drupal\Core\StreamWrapper\StreamWrapperManagerInterface;
 use Drupal\media_album_av_common\Traits\MediaTrait;
 use Drupal\media_album_av_common\Service\AlbumGroupingConfigService;
 use Drupal\node\Entity\Node;
+use Drupal\media_album_light_table_style\Form\MediaLightTableActionsForm;
 
 /**
  * A custom style plugin for rendering media album light tables.
@@ -226,17 +227,6 @@ class MediaAlbumLightTableStyle extends StylePluginBase {
       '#open' => TRUE,
     ];
 
-    $form['visu_params']['sorter'] = [
-      '#type' => 'select',
-      '#title' => $this->t('Sorting tool'),
-      '#options' => [
-        'draggable' => $this->t('Draggable'),
-        'sortable' => $this->t('SortableJS'),
-      ],
-      '#default_value' => $this->options['sorter'] ?? 'sortable',
-      '#parents' => ['style_options', 'sorter'],
-    ];
-
     $form['visu_params']['columns'] = [
       '#type' => 'number',
       '#title' => $this->t('Number of columns'),
@@ -311,6 +301,14 @@ class MediaAlbumLightTableStyle extends StylePluginBase {
       '#default_value' => $this->options['use_actions'] ?? TRUE,
       '#description' => $this->t('Display an actions toolbar for media items.'),
       '#parents' => ['style_options', 'use_actions'],
+    ];
+
+    $form['options']['use_save_reorg'] = [
+      '#type' => 'checkbox',
+      '#title' => $this->t('Enable save button for reorganization'),
+      '#default_value' => $this->options['use_save_reorg'] ?? TRUE,
+      '#description' => $this->t('Display a save button to confirm media reorganization after drag-and-drop.'),
+      '#parents' => ['style_options', 'use_save_reorg'],
     ];
 
     // Récupérer tous les champs disponibles.
@@ -630,6 +628,13 @@ class MediaAlbumLightTableStyle extends StylePluginBase {
         $rows = reset($grouped_rows)['rows'];
         $album_data = $this->buildAlbumDataFromGroup($rows, $idx);
         if ($album_data) {
+          $action_form = \Drupal::formBuilder()->getForm(
+          MediaLightTableActionsForm::class,
+          0,
+          $this->mediaActionService->getAvailableActions(),
+          $this->options['use_actions'] ?? 1,
+          $this->options['use_save_reorg'] ?? 0
+          );
           $build['#groups'][] = [
             'group_title' => '',
             'level' => 0,
@@ -645,6 +650,7 @@ class MediaAlbumLightTableStyle extends StylePluginBase {
             'field_target_type' => NULL,
             'field_name' => NULL,
             'term_weight' => 0,
+            'info_action' => $action_form,
           ];
         }
       }
@@ -1073,10 +1079,11 @@ class MediaAlbumLightTableStyle extends StylePluginBase {
       if ($depth == 0) {
         // 1. On récupère le rendu du mini-formulaire
         $action_form = \Drupal::formBuilder()->getForm(
-          '\Drupal\media_album_light_table_style\Form\MediaLightTableActionsForm',
+          MediaLightTableActionsForm::class,
           $album_grp,
           $this->mediaActionService->getAvailableActions(),
-          $this->options['use_actions']
+          $this->options['use_actions'] ?? 1,
+          $this->options['use_save_reorg'] ?? 0
           );
         // On passe le formulaire au Twig.
         $group_item['info_action'] = $action_form;

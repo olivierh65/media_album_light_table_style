@@ -25,7 +25,7 @@ class MediaLightTableActionsForm extends FormBase {
   /**
    * {@inheritdoc}
    */
-  public function buildForm(array $form, FormStateInterface $form_state, $album_grp = NULL, array $available_actions = [], int $use_actions = 0) {
+  public function buildForm(array $form, FormStateInterface $form_state, $album_grp = NULL, array $available_actions = [], int $use_actions = 0, int $use_save_reorg = 1) {
 
     /* if (empty($available_actions)) {
     return $form;
@@ -93,7 +93,16 @@ class MediaLightTableActionsForm extends FormBase {
       // '#limit_validation_errors' => [],
       // '#submit' => [],
       '#attributes' => [
-        'class' => ['media-light-table-save-button', 'media-light-table-ajax-button', 'js-media-save-reorg', 'button', 'js-form-submit', 'form-submit'],
+        'class' => [
+          'media-light-table-save-button',
+          'media-light-table-ajax-button',
+          'js-media-save-reorg',
+          'button',
+          'js-form-submit',
+          'form-submit',
+    // Masquer le bouton si la fonctionnalité est désactivée].
+          $use_save_reorg != 0 ? '' : 'visually-hidden',
+        ],
         'data-album-grp' => $album_grp,
         'data-unique-key' => 'save_' . $album_grp,
         'data-prepare-function' => 'prepareReorgData',
@@ -105,7 +114,7 @@ class MediaLightTableActionsForm extends FormBase {
           'type' => 'throbber',
           'message' => $this->t('Saving...'),
         ],
-        /* 'trigger_as' => ['name' => 'save-button-' . $album_grp], */
+          /* 'trigger_as' => ['name' => 'save-button-' . $album_grp], */
       ],
     ];
 
@@ -159,6 +168,7 @@ class MediaLightTableActionsForm extends FormBase {
           'data-album-grp' => $album_grp,
           'data-unique-key' => 'execute_' . $album_grp,
           'data-prepare-function' => 'prepareActionData',
+          'data-action-select-id' => 'media-light-table-action-select-' . $album_grp,
         ],
         '#ajax' => [
           'progress' => [
@@ -177,35 +187,7 @@ class MediaLightTableActionsForm extends FormBase {
       ];
     }
     $form['#attached']['library'] = [
-      'media_album_light_table_style/media-light-table',
-    ];
-
-    // This container wil be replaced by AJAX.
-    $form['container'] = [
-      '#type' => 'container',
-      '#attributes' => ['id' => 'box-container'],
-    ];
-
-    $form['submit'] = [
-      '#type' => 'submit',
-      // The AJAX handler will call our callback, and will replace whatever page
-      // element has id box-container.
-      '#ajax' => [
-        'callback' => '::promptCallback',
-        'wrapper' => 'box-container',
-      ],
-      '#value' => $this->t('Submit'),
-    ];
-
-    $form['submit2'] = [
-      '#type' => 'submit',
-      // The AJAX handler will call our callback, and will replace whatever page
-      // element has id box-container.
-      '#ajax' => [
-        'callback' => '::callbackExecuteAction',
-        'wrapper' => 'box-container',
-      ],
-      '#value' => $this->t('Submit2'),
+      'media_album_light_table_style/media-light-table-actions',
     ];
 
     return $form;

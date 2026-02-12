@@ -18,8 +18,20 @@ media-light-table:
     js/media-light-table-filters.js: {}
     js/media-light-table-more-info.js: {}
     js/media-light-table-edit-modal.js: {}
-    js/media-light-table-modal.js: {}
+    # TODO: a supprimer
+    # js/media-light-table-modal.js: {}
   dependencies:
     - core/drupal
     - core/once
     - media_album_av_common/sortablejs
+
+media-light-table-actions:
+  version: 1.x
+  css:
+    theme:
+      css/media-light-table-actions.css: {}
+  js:
+    js/media-light-table-selection.js: {}
+  dependencies:
+    - core/drupal
+    - core/once
