@@ -56,17 +56,6 @@
 				</div>
 			{% endif %}
 
-			{# VBO Actions Field #}
-			{% if field_mapping_config.vbo.enabled %}
-				<div class="draggable-flexgrid__group-2 media-light-table-vbo-field">
-					<span
-						class="field-content media-light-field-content">
-						{# Rendre le vrai champ VBO #}
-						{{ view.style_plugin.getField(row_index, field_mapping_config.vbo.field) }}
-					</span>
-				</div>
-			{% endif %}
-
 			{# Action Field #}
 			{% if field_mapping_config.action.enabled %}
 				<div class="draggable-flexgrid__group-5 media-light-table-action-field">
@@ -252,4 +241,20 @@
 			</div>
 		{% endfor %}
 	{% endif %}
+</div>
+
+{# Modal for media preview #}
+<div id="media-light-table-modal" class="media-album-light-table__modal" hidden>
+	<div class="media-album-light-table__modal-overlay"></div>
+	<div class="media-album-light-table__modal-content">
+		<button class="media-album-light-table__modal-close" type="button" aria-label="Close modal">
+			<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+				<line x1="18" y1="6" x2="6" y2="18"/>
+				<line x1="6" y1="6" x2="18" y2="18"/>
+			</svg>
+		</button>
+		<div class="media-album-light-table__modal-body">
+			<img id="modal-media-image" src="" alt="" class="media-album-light-table__modal-image" />
+		</div>
+	</div>
 </div>

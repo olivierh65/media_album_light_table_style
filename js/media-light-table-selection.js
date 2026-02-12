@@ -323,6 +323,7 @@
               if (!grid._sortableInstance?.multiDrag) { */
               e.preventDefault();
               e.stopPropagation();
+              // e.stopImmediatePropagation();
 
               if (e.shiftKey) {
                 const gridItems = Array.from(

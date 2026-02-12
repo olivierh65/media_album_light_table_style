@@ -14,7 +14,7 @@
       // Get all zoom triggers.
       const triggers = once(
         'media-light-table-modal-trigger',
-        '.media-album-light-table__zoom-trigger',
+        '.media-light-table-zoom-trigger, .media-drop-zoom-trigger, .media-album-light-table__zoom-trigger',
         context
       );
 

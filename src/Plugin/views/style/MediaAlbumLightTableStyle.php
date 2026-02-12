@@ -665,18 +665,19 @@ class MediaAlbumLightTableStyle extends StylePluginBase {
 
     // Ajouter les librairies.
     // Dragula must be loaded FIRST before draggable-flexgrid can use it.
-    $build['#attached']['library'][] = 'media_album_av_common/dragula';
+    // $build['#attached']['library'][] = 'media_album_av_common/dragula';.
     $build['#attached']['library'][] = 'media_album_av_common/sortablejs';
-    $build['#attached']['library'][] = 'media_album_av_common/draggable-flexgrid';
     $build['#attached']['library'][] = 'media_album_light_table_style/media-light-table';
+    // $build['#attached']['library'][] = 'media_album_av_common/draggable-flexgrid';
     // Load custom media item selection library.
-    $build['#attached']['library'][] = 'media_album_light_table_style/media-light-table-selection';
+    // $build['#attached']['library'][] = 'media_album_light_table_style/media-light-table-selection';
     // Load media modal libraries (zoom and edit).
-    $build['#attached']['library'][] = 'media_album_av_common/media-light-table-modal';
+    // $build['#attached']['library'][] = 'media_album_light_table_style/media-light-table-modal';
+    // Modal JS/CSS are already included in media-light-table library
     // $build['#attached']['library'][] = 'media_album_av_common/media-light-table-edit-modal';
     // $form['#attached']['library'][] = 'core/drupal.ajax';
     // Load media actions library.
-    $build['#attached']['library'][] = 'media_album_light_table_style/media-light-table-actions';
+    // $build['#attached']['library'][] = 'media_album_light_table_style/media-light-table-actions';
     // Ajouter les settings pour JavaScript.
     $build['#attached']['drupalSettings']['draggableFlexGrid'] = [
       'view_id' => $this->view->id(),
@@ -697,7 +698,7 @@ class MediaAlbumLightTableStyle extends StylePluginBase {
     $css_selectors = $this->options['css_selectors'] ?? $this->defineOptions()['css_selectors']['default'];
     $build['#attached']['drupalSettings']['dragtool'] = [
       'dragtool' => 'sortable',
-      'dragula' => [
+      /* 'dragula' => [
         'options' => [
           'revertOnSpill' => TRUE,
           'removeOnSpill' => FALSE,
@@ -715,7 +716,7 @@ class MediaAlbumLightTableStyle extends StylePluginBase {
         'callbacks' => [
           'saveorder' => 'media-drop/draggable-flexgrid/save-order',
         ],
-      ],
+      ], */
       'sortable' => [
         'options' => [
           'animation' => 150,
