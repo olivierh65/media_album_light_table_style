@@ -628,9 +628,10 @@ class MediaAlbumLightTableStyle extends StylePluginBase {
         $rows = reset($grouped_rows)['rows'];
         $album_data = $this->buildAlbumDataFromGroup($rows, $idx);
         if ($album_data) {
+          $album_grp_id = rand();
           $action_form = \Drupal::formBuilder()->getForm(
           MediaLightTableActionsForm::class,
-          0,
+          $album_grp_id,
           $this->mediaActionService->getAvailableActions(),
           $this->options['use_actions'] ?? 1,
           $this->options['use_save_reorg'] ?? 0
@@ -644,7 +645,7 @@ class MediaAlbumLightTableStyle extends StylePluginBase {
             'taxo_name' => '',
             'nid' => NULL,
             'node_title' => '',
-            'album_group' => 'album-no-grouping',
+            'album_group' => $album_grp_id,
             'groupid' => 'album-no-grouping',
             'field_type' => NULL,
             'field_target_type' => NULL,

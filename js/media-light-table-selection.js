@@ -237,8 +237,8 @@
             const actionSelectId = $button.data("action-select-id"); // Récupérer l'ID du select d'action depuis les data attributes
 
             if (
-              (!albumGrp || !prepareFuncName) && // Prepare function for actions
-              (!albumGrp || !actionSelectId)
+              !((albumGrp != null && prepareFuncName != null) || // Prepare function for actions
+              (albumGrp != null && actionSelectId != null))
             ) {
               // Simple button (Cancel, OK, Save reorg)
               console.log("❌ Pas notre bouton");
