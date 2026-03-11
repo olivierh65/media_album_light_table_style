@@ -237,8 +237,10 @@
             const actionSelectId = $button.data("action-select-id"); // Récupérer l'ID du select d'action depuis les data attributes
 
             if (
-              !((albumGrp != null && prepareFuncName != null) || // Prepare function for actions
-              (albumGrp != null && actionSelectId != null))
+              !(
+                (albumGrp != null && prepareFuncName != null) || // Prepare function for actions
+                (albumGrp != null && actionSelectId != null)
+              )
             ) {
               // Simple button (Cancel, OK, Save reorg)
               console.log("❌ Pas notre bouton");
@@ -475,30 +477,30 @@
       ).forEach((actionBtn) => {
         // Fonction spécifique à ce bouton / action
         actionBtn.handleActionAjaxResponse = function () {
-          const actionType = actionBtn.dataset.actionType;
           const data = drupalSettings.mediaAction;
+          const albumGrp = actionBtn.dataset.albumGrp;
 
-          console.log("AJAX terminé pour action", actionType);
-          if (data?.result.success == true) {
-            console.log("Action réussie:", actionType);
+          if (data?.result?.success == true) {
+            const movedIds = (data.result.moved_ids ?? []).map(String);
+
+            if (movedIds.length > 0) {
+              const albumView = actionBtn.closest(lightTableContentClass);
+              movedIds.forEach((mediaId) => {
+                const thumb = albumView?.querySelector(
+                  `${thumbnailClass}[data-media-id="${mediaId}"], ${thumbnailClass}[data-entity-id="${mediaId}"]`,
+                );
+                thumb?.closest(mediaItemClass)?.remove();
+              });
+            }
 
             actionBtn.disabled = true;
             actionBtn.classList.remove("is-loading");
-
             const albumView = actionBtn.closest(lightTableContentClass);
-            if (albumView) {
-              const albumGrp = actionBtn.dataset.albumGrp;
-              if (albumGrp) updateSelectionCountForGroup(albumView, albumGrp);
-            }
+            if (albumView && albumGrp)
+              updateSelectionCountForGroup(albumView, albumGrp);
           } else {
-            console.error(
-              "Erreur lors de l'exécution de l'action",
-              actionType,
-              data?.result?.message ?? "Aucun message d'erreur fourni",
-            );
-            alert(
-              "Une erreur est survenue lors de l'exécution de l'action. Veuillez réessayer.",
-            );
+            console.error("Erreur action", data?.result?.message);
+            alert("Une erreur est survenue. Veuillez réessayer.");
           }
         };
 

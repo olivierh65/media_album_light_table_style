@@ -26,8 +26,8 @@ use Drupal\media_album_light_table_style\Form\MediaLightTableActionsForm;
  * @ingroup views_style_plugins
  *
  * @ViewsStyle(
- *   id = "media_album_light_table_2",
- *   title = @Translation("Media Album Light Table V2"),
+ *   id = "media_album_light_table",
+ *   title = @Translation("Media Album Light Table"),
  *   help = @Translation("Renders a light table specifically for media album items."),
  *   theme = "views_view_media_album_light_table",
  *   display_types = {"normal"}
@@ -614,6 +614,11 @@ class MediaAlbumLightTableStyle extends StylePluginBase {
       // Mode standard : utiliser les champs de regroupement de la vue.
       $grouped_rows = $this->renderGrouping($this->view->result, $this->options['grouping'], TRUE);
       $build['#groups'] = $this->processGroupRecursiveLightTable($grouped_rows, $this->view->result, $build, $this->options['grouping']);
+    }
+    elseif (isset($this->view->directoryGrouping)) {
+      // Mode regroupement par repertoire pour media_drop_manage.
+      $grouped_rows = $this->renderGrouping($this->view->result, $this->view->directoryGrouping, TRUE);
+      $build['#groups'] = $this->processGroupRecursiveLightTable($grouped_rows, $this->view->result, $build, $this->view->directoryGrouping);
     }
     else {
       // No grouping : afficher simplement les médias sans regroupement
