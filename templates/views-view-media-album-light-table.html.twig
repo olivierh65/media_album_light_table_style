@@ -105,6 +105,12 @@
 								{{ infos.bundle }}
 							</span>
 						{% endif %}
+						{% for field_name, field_value in infos.fields %}
+							<span class="media-light-table-image-field media-light-table-popup-field">
+								<strong>{{ field_name }}:</strong>
+								{{ field_value }}
+							</span>
+						{% endfor %}
 					</div>
 				</div>
 			{% endif %}
