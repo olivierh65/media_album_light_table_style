@@ -148,6 +148,8 @@ class MediaAlbumLightTableStyle extends StylePluginBase {
     $options['responsive'] = ['default' => TRUE];
     $options['field_groups'] = ['default' => []];
     $options['show_ungrouped'] = ['default' => TRUE];
+    $options['use_actions'] = ['default' => TRUE];
+    $options['use_save_reorg'] = ['default' => TRUE];
 
     // CSS class/selector overrides.
     $options['css_selectors'] = [

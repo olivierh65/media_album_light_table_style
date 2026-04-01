@@ -87,11 +87,11 @@ class MediaLightTableActionsForm extends FormBase {
     $form['info_action_wrapper']['group_info']['counter_wrapper']['save_button'] = [
       '#type' => 'submit',
       '#value' => $this->t('Sauvegarder l\'ordre'),
-       // To identify the button in the ajax prepare function.
-      // '#name' => 'save-button-' . $album_grp,.
+     // To identify the button in the ajax prepare function.
+    // '#name' => 'save-button-' . $album_grp,.
       '#id' => 'save-button-' . $album_grp,
-      // '#limit_validation_errors' => [],
-      // '#submit' => [],
+    // '#limit_validation_errors' => [],
+    // '#submit' => [],
       '#attributes' => [
         'class' => [
           'media-light-table-save-button',
@@ -114,12 +114,12 @@ class MediaLightTableActionsForm extends FormBase {
           'type' => 'throbber',
           'message' => $this->t('Saving...'),
         ],
-          /* 'trigger_as' => ['name' => 'save-button-' . $album_grp], */
+        /* 'trigger_as' => ['name' => 'save-button-' . $album_grp], */
       ],
     ];
 
     $form['info_action_wrapper']['group_info']['counter_wrapper']['reorg_data'] = [
-      '#type' => 'value',
+      '#type' => 'hidden',
       '#attributes' => [
         'id' => 'reorg-data-' . $album_grp,
       ],
@@ -171,6 +171,7 @@ class MediaLightTableActionsForm extends FormBase {
           'data-action-select-id' => 'media-light-table-action-select-' . $album_grp,
         ],
         '#ajax' => [
+          'method' => 'POST',
           'progress' => [
             'type' => 'throbber',
             'message' => $this->t('Loading...'),
@@ -247,57 +248,78 @@ class MediaLightTableActionsForm extends FormBase {
   }
 
   /**
-   *
+   * AJAX callback to save album reorganization.
    */
   public function saveAlbumReorganization(array &$form, FormStateInterface $form_state) {
     $response = new AjaxResponse();
 
-    $data = $form_state->getUserInput()['prepared_media_data'];
-    $data = json_decode($data, TRUE);
+    try {
+      // Get the prepared data from the form field.
+      $reorg_data = $form_state->getValue('reorg_data');
 
-    $media_order = $data['media_order'] ?? NULL;
+      if (empty($reorg_data)) {
+        $response->addCommand(new MessageCommand($this->t('Aucune donnée à sauvegarder'), 'warning'));
+        return $response;
+      }
 
-    if (!empty($media_order) || (($data['action']) ?? '') === 'reorg') {
-      $mediaOrderService = \Drupal::service('media_album_av_common.media_order_service');
-      $result = $mediaOrderService->saveMediaOrder($media_order);
-      $album_grp = $media_order[0]['album_grp'] ?? NULL;
-
-      // Afficher le message approprié en fonction du résultat.
-      if ($result['success']) {
-        $message = $this->t('Sauvegarde réussie ! (@count items processed)',
-          ['@count' => $result['processed']]
-        );
-        $response->addCommand(new MessageCommand($message, 'status'));
+      // If it's a JSON string, decode it; otherwise use as-is.
+      if (is_string($reorg_data)) {
+        $data = json_decode($reorg_data, TRUE);
       }
       else {
-        $message = $this->t('Erreur lors de la sauvegarde : @message',
-          ['@message' => $result['message']]
-        );
-        $response->addCommand(new MessageCommand($message, 'error'));
-
-        // Ajouter les erreurs détaillées si présentes.
-        if (!empty($result['errors'])) {
-          foreach ($result['errors'] as $error) {
-            $response->addCommand(new MessageCommand($error, 'warning'));
-          }
-        }
+        $data = $reorg_data;
       }
 
-      // Vous pouvez aussi envoyer une commande JS personnalisée pour reset le state 'hasChanges'.
-      $response->addCommand(new InvokeCommand('.media-light-table-save-button',
-        'removeClass', ['is-loading']));
+      $media_order = $data['media_order'] ?? NULL;
 
-      $response->addCommand(new SettingsCommand([
-        'mediaReorg' => [
-          'albumGrp' => $album_grp,
-          'result' => $result,
-        ],
-      ], TRUE));
-      // Déclencher un événement personnalisé jQuery qui appellera handleReorgAjaxResponse.
-      $response->addCommand(new InvokeCommand('.js-media-save-reorg[data-album-grp="' . $album_grp . '"]', 'trigger', ['reorgAjaxResponse']));
+      if (!empty($media_order) || (($data['action']) ?? '') === 'reorg') {
+        $mediaOrderService = \Drupal::service('media_album_av_common.media_order_service');
+        $result = $mediaOrderService->saveMediaOrder($data);
+        $album_grp = $media_order[0]['album_grp'] ?? NULL;
+
+        // Afficher le message approprié en fonction du résultat.
+        if ($result['success']) {
+          $message = $this->t('Sauvegarde réussie ! (@count items , @count_taxo taxonprocessed)',
+            ['@count' => $result['processed_media'], '@count_taxo' => $result['processed_taxonomy']]
+          );
+          $response->addCommand(new MessageCommand($message, 'status'));
+        }
+        else {
+          $message = $this->t('Erreur lors de la sauvegarde : @message',
+            ['@message' => $result['message']]
+          );
+          $response->addCommand(new MessageCommand($message, 'error'));
+
+          // Ajouter les erreurs détaillées si présentes.
+          if (!empty($result['errors'])) {
+            foreach ($result['errors'] as $error) {
+              $response->addCommand(new MessageCommand($error, 'warning'));
+            }
+          }
+        }
+
+        // Vous pouvez aussi envoyer une commande JS personnalisée pour reset le state 'hasChanges'.
+        $response->addCommand(new InvokeCommand('.media-light-table-save-button',
+          'removeClass', ['is-loading']));
+
+        $response->addCommand(new SettingsCommand([
+          'mediaReorg' => [
+            'albumGrp' => $album_grp,
+            'result' => $result,
+          ],
+        ], TRUE));
+        // Déclencher un événement personnalisé jQuery qui appellera handleReorgAjaxResponse.
+        $response->addCommand(new InvokeCommand('.js-media-save-reorg[data-album-grp="' . $album_grp . '"]', 'trigger', ['reorgAjaxResponse']));
+      }
+      else {
+        $response->addCommand(new MessageCommand($this->t('Aucune donnée à sauvegarder'), 'warning'));
+      }
     }
-    else {
-      $response->addCommand(new MessageCommand($this->t('Aucune donnée à sauvegarder'), 'warning'));
+    catch (\Exception $e) {
+      $response->addCommand(new MessageCommand(
+        $this->t('Erreur lors du traitement : @message', ['@message' => $e->getMessage()]),
+        'error'
+      ));
     }
 
     return $response;

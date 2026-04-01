@@ -271,7 +271,7 @@
             }
 
             // ✅ Préparer les données
-            if (
+            if (prepareFuncName &&
               typeof window.MediaAlbumFunctions[prepareFuncName] === "function"
             ) {
               const preparedData =
@@ -280,15 +280,26 @@
               console.log("📦 Données préparées:", preparedData);
 
               if (preparedData) {
-                // ✅ Ajouter directement dans options.data
-                options.data.prepared_media_data = JSON.stringify(preparedData);
-
-                console.log("✅ Données injectées dans options.data");
-                console.log("Options.data:", options.data);
+                // ✅ For action execution: Add data to POST payload
+                if (actionSelectId) {
+                  options.data.prepared_media_data = JSON.stringify(preparedData);
+                  console.log("✅ Données ajoutées au POST payload");
+                  console.log("Options.data:", options.data);
+                } else {
+                  // ✅ For reorganization: Populate the form field
+                  const reorgDataField = document.querySelector(`#reorg-data-${albumGrp}`);
+                  if (reorgDataField) {
+                    reorgDataField.value = JSON.stringify(preparedData);
+                    console.log("✅ Données injectées dans le champ du formulaire");
+                    console.log("Champ:", reorgDataField);
+                  } else {
+                    console.warn("⚠️ Champ reorg-data non trouvé:", `#reorg-data-${albumGrp}`);
+                  }
+                }
               } else {
                 console.warn("⚠️ prepareData a retourné null");
               }
-            } else {
+            } else if (prepareFuncName) {
               console.warn("⚠️ Fonction non trouvée:", prepareFuncName);
             }
           };
@@ -430,6 +441,7 @@
           saveBtn.handleReorgAjaxResponse = function () {
             const albumGrp = saveBtn.dataset.albumGrp;
             const data = drupalSettings.mediaReorg;
+            let albumView;
 
             console.log("AJAX terminé pour album", albumGrp);
             if (data?.result.success == true) {
@@ -439,7 +451,7 @@
               saveBtn.disabled = true;
               saveBtn.classList.remove("is-loading");
 
-              const albumView = saveBtn.closest(lightTableContentClass);
+              albumView = saveBtn.closest(lightTableContentClass);
             } else {
               console.error(
                 "Erreur lors de la réorganisation de l'album",
