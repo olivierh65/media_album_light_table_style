@@ -17,7 +17,7 @@
 {% set field_mapping_config = options.field_mapping|default({}) %}
 
 {# Macro to render media items with field groups #}
-{% macro render_media_item(media_item, columns, gap, field_mapping_config, view, group, options) %}
+{% macro render_media_item(media_item, columns, gap, field_mapping_config, view, group, options, s_token, s_id, n_id) %}
 	{% set infos = media_item.media %}
 	{% set thumbnail = media_item.thumbnail %}
 	{% set image_alt = infos.fields.name|default('') %}
@@ -39,34 +39,25 @@
 						data-termid="{{group.termid}}"
 						data-orig-field-type="{{ group.field_type }}" data-orig-field-name="{{ group.field_name }}">
 						<span class="field-content media-light-field-content">
-							<img src="{{ thumbnail.thumbnail_url }}" loading="lazy" alt="{{ image_alt }}" title="{{ infos.label }} ({{ 'ID' }}: {{ infos.id }})" width="{{ thumbnail.thumbnail_width }}" height="{{ thumbnail.thumbnail_height }}" class="draggable-flexgrid__image media-light-table-image"/>
-						</span>
-					</div>
-				</div>
-			{% endif %}
-
-			{# Name Field #}
-			{% if field_mapping_config.name.enabled %}
-				<div
-					class="draggable-flexgrid__group-3 media-light-table-name-field">
-					{# Rendre le vrai champ name #}
-					<span class="field-content media-light-field-content">
-						{{ view.style_plugin.getField(row_index, field_mapping_config.name.field) }}
+						{# Ajouter les paramètres de sécurité à l'URL #}
+						{% set security_query = 's_t=' ~ s_token ~ '&s_id=' ~ s_id ~ '&n_id=' ~ n_id %}
+						{% set url_sep = (thumbnail.thumbnail_url|split('?')|length > 1) ? '&' : '?' %}
+						<img src="{{ thumbnail.thumbnail_url }}{{ url_sep }}{{ security_query }}&m_id={{ infos.id }}" loading="lazy" alt="{{ image_alt }}" title="{{ infos.label }} ({{ 'ID' }}: {{ infos.id }})" width="{{ thumbnail.thumbnail_width }}" height="{{ thumbnail.thumbnail_height }}" class="draggable-flexgrid__image media-light-table-image"/>
 					</span>
 				</div>
-			{% endif %}
+			</div>
+		{% endif %}
 
-			{# Action Field #}
-			{% if field_mapping_config.action.enabled %}
-				<div class="draggable-flexgrid__group-5 media-light-table-action-field">
-					<span
-						class="field-content media-light-field-content">
-						{# Rendre le vrai champ action #}
-						{{ view.style_plugin.getField(row_index, field_mapping_config.action.field) }}
-					</span>
-				</div>
-			{% endif %}
-
+		{# Name Field #}
+		{% if field_mapping_config.name.enabled %}
+			<div
+				class="draggable-flexgrid__group-3 media-light-table-name-field">
+				{# Rendre le vrai champ name #}
+				<span class="field-content media-light-field-content">
+					{{ view.style_plugin.getField(row_index, field_mapping_config.name.field) }}
+				</span>
+			</div>
+		{% endif %}
 			{# Media Details - reste inchangé #}
 			{% if field_mapping_config.details.enabled %}
 				<div class="media-light-table-info-wrapper media-light-table-details-field" data-once="entity-popup">
@@ -143,7 +134,9 @@
 					<path d="M87.73,0c1.3-0.01,2.42,0.43,3.39,1.35l14.16,13.55c0.92,0.88,1.37,2.04,1.39,3.32 c0.02,1.3-0.36,2.49-1.26,3.39l-7.54,7.84L76.95,9.25l7.46-7.77C85.32,0.53,86.43,0.02,87.73,0L87.73,0L87.73,0z M21.44,72.88 c2.56-0.79,5.26,0.65,6.05,3.2c0.79,2.56-0.65,5.26-3.2,6.05c-7.45,2.28-12.44,6.7-14.1,10.85c-0.44,1.11-0.59,2.12-0.42,2.96 c0.13,0.63,0.51,1.21,1.14,1.66c2.72,1.99,8.58,2.5,18.42,0.11c4.76-1.16,2.81-0.68,5.99-1.27c6.32-1.17,12.63-1.97,17.72-1.72 c6.68,0.33,11.7,2.48,13.41,7.61c1.11,3.32,0.8,6.2,0.52,8.78c-0.1,0.93-0.19,1.79-0.15,2.36c0,0.02,1.01-0.05,5.9-0.44 c5.66-0.45,11.52-2.68,17.3-4.89c2.97-1.13,5.91-2.25,9.25-3.28c2.56-0.78,5.26,0.67,6.03,3.22c0.78,2.56-0.67,5.26-3.22,6.03 c-2.59,0.79-5.59,1.94-8.6,3.08c-6.45,2.46-12.96,4.94-20,5.5c-12.88,1.01-15.87-2.63-16.33-8.48c-0.11-1.38,0.03-2.71,0.18-4.14 c0.17-1.6,0.36-3.39-0.07-4.69c-0.19-0.58-2.02-0.88-4.68-1c-4.26-0.21-9.84,0.51-15.52,1.57c-2.83,0.52-0.8,0.02-5.45,1.15 c-12.96,3.15-21.57,1.81-26.39-1.71c-2.71-1.97-4.32-4.56-4.94-7.47c-0.58-2.71-0.25-5.63,0.91-8.54 C3.81,82.85,11.04,76.06,21.44,72.88L21.44,72.88L21.44,72.88z M44.06,51.71l12.84,12.35l-15.7,4.22 c-0.57,0.11-0.79-0.12-0.69-0.64L44.06,51.71L44.06,51.71L44.06,51.71z M70.31,16.13l20.91,20.14L62.66,66.41l-25.59,6.86 c-0.92,0.18-1.28-0.18-1.13-1.05l5.8-25.94L70.31,16.13L70.31,16.13L70.31,16.13z"/>
 				</svg>
 			</div>
-			<div class="{{ options.css_selectors.zoomTrigger }} draggable-flexgrid__menu-button" role="button" tabindex="0" title="{{ 'View full size'|t }}" aria-label="{{ 'View full size'|t }}" data-image-src="{{ infos.url }}" data-image-alt="{{ image_alt }}" data-mime-type="{{ infos.mime_type }}" data-media-type="{{ infos.mime_type|split('/')|first }}">
+			{% set full_security_query = 's_t=' ~ s_token ~ '&s_id=' ~ s_id ~ '&n_id=' ~ n_id ~ '&m_id=' ~ infos.id %}
+			{% set full_url_sep = (infos.url|split('?')|length > 1) ? '&' : '?' %}
+			<div class="{{ options.css_selectors.zoomTrigger }} draggable-flexgrid__menu-button" role="button" tabindex="0" title="{{ 'View full size'|t }}" aria-label="{{ 'View full size'|t }}" data-image-src="{{ infos.url }}{{ full_url_sep }}{{ full_security_query }}" data-image-alt="{{ image_alt }}" data-mime-type="{{ infos.mime_type }}" data-media-type="{{ infos.mime_type|split('/')|first }}">
 				<svg class="zoom-icon" width="1.8rem" height="1.8rem" viewbox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
 					<circle cx="11" cy="11" r="8"/>
 					<line x1="19" y1="19" x2="28" y2="28" stroke-width="3"/>
@@ -176,8 +169,8 @@
 				<div class="media-grid {{ options.css_selectors.gridContainer }} {% if group.field_target_type == " taxonomy_term" %}album-group-{{ album_group }} js-draggable-flexgrid draggable-flexgrid__grid {% endif %}{% if not album.medias %} empty-state{% endif %}" data-album-id="{{ album.id }}" data-album-grp="{{ album_group }}" data-termid="{{ termid }}" data-nid="{{ nid }}" data-gap="{{ gap }}" data-field-type="{{ group.field_type }}" data-field-name="{{ group.field_name }}" style="display: flex; flex-wrap: wrap; gap: {{ gap }};" data-level="{{ group.level }}">
 					{% if album.medias %}
 						{% for media_item in album.medias %}
-							{# Passer view et row_index à la macro #}
-							{{ _self.render_media_item(media_item, columns, gap, field_mapping_config, view, group, options) }}
+							{# Passer view et row_index à la macro, ainsi que les tokens de sécurité #}
+							{{ _self.render_media_item(media_item, columns, gap, field_mapping_config, view, group, options, album.s_token|default(''), album.s_id|default(''), album.nid|default('')) }}
 						{% endfor %}
 					{% endif %}
 				</div>

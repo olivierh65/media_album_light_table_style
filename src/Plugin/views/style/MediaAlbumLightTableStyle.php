@@ -17,6 +17,7 @@ use Drupal\media_album_av_common\Traits\MediaTrait;
 use Drupal\media_album_av_common\Service\AlbumGroupingConfigService;
 use Drupal\node\Entity\Node;
 use Drupal\media_album_light_table_style\Form\MediaLightTableActionsForm;
+use Drupal\Component\Utility\Crypt;
 
 /**
  * A custom style plugin for rendering media album light tables.
@@ -633,7 +634,12 @@ class MediaAlbumLightTableStyle extends StylePluginBase {
       // Extract rows from the first (and only) group structure.
       if (!empty($grouped_rows) && isset(reset($grouped_rows)['rows'])) {
         $rows = reset($grouped_rows)['rows'];
-        $album_data = $this->buildAlbumDataFromGroup($rows, $idx);
+
+        // Try to extract NID from the first row if available.
+        $first_row = reset($rows);
+        $nid = $first_row->nid ?? NULL;
+
+        $album_data = $this->buildAlbumDataFromGroup($rows, $idx, $nid);
         if ($album_data) {
           $album_grp_id = rand();
           $action_form = \Drupal::formBuilder()->getForm(
@@ -650,7 +656,7 @@ class MediaAlbumLightTableStyle extends StylePluginBase {
             'subgroups' => [],
             'termid' => 0,
             'taxo_name' => '',
-            'nid' => NULL,
+            'nid' => $nid,
             'node_title' => '',
             'album_group' => $album_grp_id,
             'groupid' => 'album-no-grouping',
@@ -768,6 +774,18 @@ class MediaAlbumLightTableStyle extends StylePluginBase {
         'saveMediaOrder' => 'media-album-av-common/save-media-order',
       ],
     ];
+
+    // 1. Préparer les éléments de sécurité uniques pour ce rendu.
+    $session_id = \Drupal::service('session_manager')->getId();
+    $private_key = \Drupal::service('private_key')->get();
+    $render_id = Crypt::randomBytesBase64(8);
+    $s_token = Crypt::hmacBase64($render_id, $session_id . $private_key);
+
+    // 2. Injecter récursivement via la méthode privée.
+    $this->injectSecurityTokens($build['#groups'], $s_token, $render_id);
+
+    // 3. Sécuriser le cache.
+    $build['#cache']['contexts'][] = 'session';
 
     return $build;
   }
@@ -1115,7 +1133,7 @@ class MediaAlbumLightTableStyle extends StylePluginBase {
           );
         }
         else {
-          $r = $this->buildAlbumDataFromGroup($group_data['rows'], $idx);
+          $r = $this->buildAlbumDataFromGroup($group_data['rows'], $idx, $group_item['nid'] ?? NULL);
           if ($r) {
             $group_item['albums'][] = $r;
           }
@@ -1227,7 +1245,7 @@ class MediaAlbumLightTableStyle extends StylePluginBase {
    * @return array|null
    *   The album data or NULL on error.
    */
-  private function buildAlbumDataFromGroup($rows, $group_index) {
+  private function buildAlbumDataFromGroup($rows, $group_index, $nid = NULL) {
     $medias = [];
 
     foreach ($rows as $index => $row) {
@@ -1269,6 +1287,7 @@ class MediaAlbumLightTableStyle extends StylePluginBase {
       'id' => $album_id,
       'group_index' => $group_index,
       'medias' => $medias,
+      'nid' => $nid,
     ];
   }
 
@@ -1486,6 +1505,37 @@ class MediaAlbumLightTableStyle extends StylePluginBase {
     // Fallback : utiliser le nom système du champ.
     if (!$grouping_label) {
       $grouping_label = $grouping_field;
+    }
+  }
+
+  /**
+   * Inject security tokens recursively into the groups structure.
+   *
+   * @param array $groups
+   *   The groups array to process.
+   * @param string $s_token
+   *   The generated HMAC token.
+   * @param string $render_id
+   *   The random render ID.
+   */
+  private function injectSecurityTokens(array &$groups, string $s_token, string $render_id) {
+    foreach ($groups as &$group) {
+      // On injecte les tokens au niveau du groupe.
+      $group['s_token'] = $s_token;
+      $group['s_id'] = $render_id;
+
+      // Si le groupe contient des albums, on les marque aussi.
+      if (!empty($group['albums'])) {
+        foreach ($group['albums'] as &$album) {
+          $album['s_token'] = $s_token;
+          $album['s_id'] = $render_id;
+        }
+      }
+
+      // Si on a des sous-groupes, on descend d'un niveau (récursivité).
+      if (!empty($group['subgroups'])) {
+        $this->injectSecurityTokens($group['subgroups'], $s_token, $render_id);
+      }
     }
   }
 
