@@ -38,7 +38,7 @@ class MediaLightTableActionsForm extends FormBase {
 
     $options = [];
     foreach ($available_actions as $action_id => $action) {
-      $options[$action_id] = $action['label'];
+      $options[$action_id . '|' . $action['prepare_js_function']] = $action['label'];
     }
 
     // 1. La DIV enveloppe : .media-light-table-group-info-action
@@ -167,7 +167,16 @@ class MediaLightTableActionsForm extends FormBase {
           ],
           'data-album-grp' => $album_grp,
           'data-unique-key' => 'execute_' . $album_grp,
-          'data-prepare-function' => 'prepareActionData',
+          // 'data-prepare-function' => 'prepareActionData',
+          // genere la base de l'URL sans les paramètres spécifiques à l'action, qui seront ajoutés dynamiquement en JS avant l'appel AJAX.
+          'data-base-url' => str_replace(
+            ['/__ACTION__', '/__ALBUM_GRP__'],
+            '',
+            Url::fromRoute('media_album_av_common.action_form', [
+              'action_id' => '__ACTION__',
+              'album_grp' => '__ALBUM_GRP__',
+            ])->toString()
+          ),
           'data-action-select-id' => 'media-light-table-action-select-' . $album_grp,
         ],
         '#ajax' => [

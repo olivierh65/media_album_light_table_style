@@ -59,8 +59,91 @@
     "." +
     (drupalSettings?.dragtool?.lightTable?.thumbnail ??
       "media-light-table-thumbnail");
+
   // Définir vos fonctions dans la portée globale ou Drupal
   window.MediaAlbumFunctions = {
+    /**
+     * Retourne les objets media de tous les médias d'un groupe (dans l'ordre DOM).
+     * @param {string} albumGrp
+     * @returns {Object[]}
+     */
+    _getAllMedia: function (albumGrp) {
+      const albumView = document.querySelector(
+        `${groupContainerClass}[data-album-grp="${albumGrp}"]`,
+      );
+      if (!albumView) return [];
+
+      const items = [];
+      albumView
+        .querySelectorAll(`${gridContainerClass}[data-album-grp="${albumGrp}"]`)
+        .forEach((grid) => {
+          Array.from(grid.querySelectorAll(mediaItemClass)).forEach(
+            (item, index) => {
+              const thumbnail = item.querySelector(thumbnailClass);
+              if (!thumbnail) return;
+              const mediaId =
+                thumbnail.dataset.mediaId || thumbnail.dataset.entityId;
+              if (!mediaId) return;
+              items.push({
+                media_id: mediaId,
+                weight: index,
+                album_grp: albumGrp,
+                termid: thumbnail.dataset.termid ?? null,
+                orig_termid: thumbnail.dataset.origTermid ?? null,
+                nid: grid.dataset.nid ?? 0,
+                field_name: grid.dataset.fieldName ?? "",
+                field_type: grid.dataset.fieldType ?? "",
+                orig_field_name: thumbnail.dataset.origFieldName ?? "",
+                orig_field_type: thumbnail.dataset.origFieldType ?? "",
+              });
+            },
+          );
+        });
+
+      return items;
+    },
+
+    /**
+     * Retourne les objets media des médias sélectionnés d'un groupe (dans l'ordre DOM).
+     * @param {string} albumGrp
+     * @returns {Object[]}
+     */
+    _getSelectedMedia: function (albumGrp) {
+      const albumView = document.querySelector(
+        `${groupContainerClass}[data-album-grp="${albumGrp}"]`,
+      );
+      if (!albumView) return [];
+
+      const items = [];
+      albumView
+        .querySelectorAll(`${gridContainerClass}[data-album-grp="${albumGrp}"]`)
+        .forEach((grid) => {
+          Array.from(
+            grid.querySelectorAll(`${mediaItemClass}.${selectedClass}`),
+          ).forEach((item, index) => {
+            const thumbnail = item.querySelector(thumbnailClass);
+            if (!thumbnail) return;
+            const mediaId =
+              thumbnail.dataset.mediaId || thumbnail.dataset.entityId;
+            if (!mediaId) return;
+            items.push({
+              media_id: mediaId,
+              weight: index,
+              album_grp: albumGrp,
+              termid: thumbnail.dataset.termid ?? null,
+              orig_termid: thumbnail.dataset.origTermid ?? null,
+              nid: grid.dataset.nid ?? 0,
+              field_name: grid.dataset.fieldName ?? "",
+              field_type: grid.dataset.fieldType ?? "",
+              orig_field_name: thumbnail.dataset.origFieldName ?? "",
+              orig_field_type: thumbnail.dataset.origFieldType ?? "",
+            });
+          });
+        });
+
+      return items;
+    },
+
     prepareReorgData: function (albumGrp) {
       if (!albumGrp) return null;
       const albumView = document.querySelector(
@@ -104,39 +187,37 @@
       };
     },
 
+    prepareSortData: function (albumGrp) {
+      if (!albumGrp) return null;
+
+      const selectedItems =
+        window.MediaAlbumFunctions._getSelectedMedia(albumGrp);
+      if (selectedItems.length === 0) return null;
+
+      const allItems = window.MediaAlbumFunctions._getAllMedia(albumGrp);
+
+      return {
+        action: "sort",
+        album_grp: albumGrp,
+        selected_items: selectedItems,
+        all_items: allItems,
+        timestamp: new Date().toISOString(),
+      };
+    },
+
     prepareActionData: function (albumGrp) {
       const albumView = document.querySelector(
         `${groupContainerClass}[data-album-grp="${albumGrp}"]`,
       );
+      if (!albumView) return null;
+
       const actionType = albumView.querySelector(
-        "#media-light-table-action-select-" + albumGrp,
-      ).value;
+        `#media-light-table-action-select-${albumGrp}`,
+      )?.value;
+      if (!actionType) return null;
 
-      if (!albumView || !actionType) return;
-
-      const selectedItems = [];
-      const gridsInGroup = albumView.querySelectorAll(
-        `${gridContainerClass}[data-album-grp="${albumGrp}"]`,
-      );
-      gridsInGroup.forEach((grid) => {
-        Array.from(
-          grid.querySelectorAll(`${mediaItemClass}.${selectedClass}`),
-        ).forEach(function (item) {
-          const thumbnail = item.querySelector(thumbnailClass);
-          if (!thumbnail) return;
-          const mediaId =
-            thumbnail.dataset.mediaId || thumbnail.dataset.entityId;
-          if (!mediaId) return;
-          selectedItems.push({
-            media_id: mediaId,
-            album_grp: albumGrp,
-            termid: thumbnail.dataset.termid,
-            nid: this.dataset.nid ?? 0,
-            field_name: this.dataset.fieldName ?? "",
-            field_type: this.dataset.fieldType ?? "",
-          });
-        }, grid);
-      });
+      const selectedItems =
+        window.MediaAlbumFunctions._getSelectedMedia(albumGrp);
 
       return {
         action: actionType,
@@ -144,6 +225,79 @@
         selected_items: selectedItems,
         timestamp: new Date().toISOString(),
       };
+    },
+
+    reorderMediaByIds: function (albumGrp, orderedIds) {
+      if (!albumGrp || !orderedIds?.length) return false;
+
+      console.log("🔄 reorderMediaByIds", albumGrp, orderedIds);
+
+      const gridsInGroup = document.querySelectorAll(
+        `${gridContainerClass}[data-album-grp="${albumGrp}"]`,
+      );
+      if (!gridsInGroup.length) {
+        console.warn("❌ Aucun grid trouvé pour albumGrp:", albumGrp);
+        return false;
+      }
+
+      // Map id → element DOM et gridContainer associé.
+      const elementMap = {};
+      gridsInGroup.forEach((grid) => {
+        grid.querySelectorAll(mediaItemClass).forEach((item) => {
+          const thumbnail = item.querySelector(thumbnailClass);
+          if (!thumbnail) return;
+          const mediaId =
+            thumbnail.dataset.mediaId || thumbnail.dataset.entityId;
+          if (mediaId) {
+            elementMap[mediaId] = { element: item, grid: grid };
+            console.log("📦 Mapped mediaId:", mediaId, "→", item);
+          }
+        });
+      });
+
+      console.log("🗺️ elementMap keys:", Object.keys(elementMap));
+      console.log("📋 orderedIds:", orderedIds);
+
+      // Vérifier que tous les IDs sont trouvés.
+      orderedIds.forEach((mediaId) => {
+        if (!elementMap[String(mediaId)]) {
+          console.warn("⚠️ ID non trouvé dans le DOM:", mediaId);
+        }
+      });
+
+      // Réordonner dans chaque grille en utilisant appendChild pour chaque container.
+      orderedIds.forEach((mediaId) => {
+        const itemData = elementMap[String(mediaId)];
+        if (itemData) {
+          const { element, grid } = itemData;
+          // Ajouter à la fin de sa grille (appendChild réordonne dans le même parent)
+          grid.appendChild(element);
+          console.log("✅ Déplacé:", mediaId, "dans sa grille");
+        } else {
+          console.warn("⚠️ Élément non trouvé pour:", mediaId);
+        }
+      });
+
+      // Notifier Sortable du changement via les événements
+      gridsInGroup.forEach((grid) => {
+        // Déclencher l'événement sortupdate sur chaque grille
+        const event = new CustomEvent('sortupdate', { detail: { from: grid } });
+        grid.dispatchEvent(event);
+      });
+
+      // Vérifier l'ordre après réordonnancement.
+      console.log("📋 Ordre DOM après réordonnancement:");
+      gridsInGroup.forEach((grid, gridIdx) => {
+        console.log(`  Grid ${gridIdx}:`);
+        grid.querySelectorAll(mediaItemClass).forEach((item, idx) => {
+          const thumbnail = item.querySelector(thumbnailClass);
+          const mediaId =
+            thumbnail?.dataset.mediaId || thumbnail?.dataset.entityId;
+          console.log(`    ${idx}: ${mediaId}`);
+        });
+      });
+
+      return true;
     },
   };
 
@@ -233,9 +387,9 @@
 
             // Vérifier si c'est un de nos boutons
             const albumGrp = $button.data("album-grp");
-            const prepareFuncName = $button.data("prepare-function"); // Récupérer le nom de la fonction de préparation depuis les data attributes
+            let prepareFuncName = $button.data("prepare-function"); // Récupérer le nom de la fonction de préparation depuis les data attributes
             const actionSelectId = $button.data("action-select-id"); // Récupérer l'ID du select d'action depuis les data attributes
-
+            const baseUrl = $button.data("base-url"); // Récupérer l'URL de base depuis les data attributes
             if (
               !(
                 (albumGrp != null && prepareFuncName != null) || // Prepare function for actions
@@ -251,6 +405,7 @@
             console.log("Album:", albumGrp);
             console.log("Function:", prepareFuncName);
             console.log("Action Select ID:", actionSelectId);
+            console.log("Base URL:", baseUrl);
 
             // options.data est un objet à ce stade (avant sérialisation)
             options.data = options.data || {};
@@ -260,10 +415,21 @@
               // Récupérer l'action sélectionnée
               const selectedAction =
                 document.getElementById(actionSelectId)?.value;
+              // Splitter sur '|' pour extraire action et fonction optionnelle
+              const [actionId, prepareFuncNameParam] =
+                selectedAction.split("|");
+              // Utiliser le nom de la fonction de préparation spécifique à l'action si défini, sinon celui du bouton
+              if (prepareFuncNameParam) {
+                prepareFuncName = prepareFuncNameParam;
+                console.log(
+                  "✅ prepareFuncName depuis l'action:",
+                  prepareFuncName,
+                );
+              }
 
               // Mettre à jour l'URL avec l'action
-              if (selectedAction && this.url) {
-                this.url = this.url.replace("__ACTION__", selectedAction);
+              if (actionId && baseUrl) {
+                this.url = baseUrl + "/" + actionId + "/" + albumGrp; // Exemple: ajouter l'action et l'album à la fin de l'URL
                 options.url = this.url; // S'assurer que l'option URL est également mise à jour
                 options.data.url = this.url; // S'assurer que l'option URL est également mise à jour
                 console.log("✅ URL mise à jour:", this.url);
@@ -271,7 +437,8 @@
             }
 
             // ✅ Préparer les données
-            if (prepareFuncName &&
+            if (
+              prepareFuncName &&
               typeof window.MediaAlbumFunctions[prepareFuncName] === "function"
             ) {
               const preparedData =
@@ -282,18 +449,26 @@
               if (preparedData) {
                 // ✅ For action execution: Add data to POST payload
                 if (actionSelectId) {
-                  options.data.prepared_media_data = JSON.stringify(preparedData);
+                  options.data.prepared_media_data =
+                    JSON.stringify(preparedData);
                   console.log("✅ Données ajoutées au POST payload");
                   console.log("Options.data:", options.data);
                 } else {
                   // ✅ For reorganization: Populate the form field
-                  const reorgDataField = document.querySelector(`#reorg-data-${albumGrp}`);
+                  const reorgDataField = document.querySelector(
+                    `#reorg-data-${albumGrp}`,
+                  );
                   if (reorgDataField) {
                     reorgDataField.value = JSON.stringify(preparedData);
-                    console.log("✅ Données injectées dans le champ du formulaire");
+                    console.log(
+                      "✅ Données injectées dans le champ du formulaire",
+                    );
                     console.log("Champ:", reorgDataField);
                   } else {
-                    console.warn("⚠️ Champ reorg-data non trouvé:", `#reorg-data-${albumGrp}`);
+                    console.warn(
+                      "⚠️ Champ reorg-data non trouvé:",
+                      `#reorg-data-${albumGrp}`,
+                    );
                   }
                 }
               } else {
@@ -475,25 +650,31 @@
         },
       );
 
-      // --- Exécution d'action ---
+      // --- Exécution d'action (déplacement ET tri) ---
       // FONCTIONNEMENT MIXTE (PHP + JavaScript):
       // - PHP: gère le state 'disabled' du bouton par rapport au select d'action (value === 'none')
       //   car c'est une interaction standard que Drupal States gère bien.
       // - JavaScript: gère le state 'disabled' du bouton par rapport au nombre d'éléments sélectionnés,
       //   car les inputs hidden ne sont pas bien détectés par Drupal States en cas de mise à jour dynamique.
       // Cette approche hybride assure un comportement fiable et réactif du bouton d'exécution.
+      // Le handler unique traite les deux types d'actions: moved_ids (déplacement) ou reordered_ids (tri)
       once(
         "media-action-binding",
         ".media-light-table-execute-action",
         context,
       ).forEach((actionBtn) => {
         // Fonction spécifique à ce bouton / action
-        actionBtn.handleActionAjaxResponse = function () {
-          const data = drupalSettings.mediaAction;
+        // Traite à la fois les déplacements (moved_ids) et les tris (reordered_ids)
+        actionBtn.handleExecuteActionResponse = function () {
+          const dataAction = drupalSettings.mediaAction;
+          const dataSort = drupalSettings.mediaSort;
           const albumGrp = actionBtn.dataset.albumGrp;
 
-          if (data?.result?.success == true) {
-            const movedIds = (data.result.moved_ids ?? []).map(String);
+          // 🎯 Déterminer quel type d'action a été exécutée
+          if (dataAction?.result?.success == true && dataAction.result.moved_ids) {
+            // ========== ACTION DE DÉPLACEMENT ==========
+            console.log("🎯 Traitement déplacement (moved_ids)");
+            const movedIds = (dataAction.result.moved_ids ?? []).map(String);
 
             if (movedIds.length > 0) {
               const albumView = actionBtn.closest(lightTableContentClass);
@@ -503,6 +684,7 @@
                 );
                 thumb?.closest(mediaItemClass)?.remove();
               });
+              console.log("✅ Médias déplacés:", movedIds);
             }
 
             actionBtn.disabled = true;
@@ -510,37 +692,43 @@
             const albumView = actionBtn.closest(lightTableContentClass);
             if (albumView && albumGrp)
               updateSelectionCountForGroup(albumView, albumGrp);
-          } else {
-            console.error("Erreur action", data?.result?.message);
+          }
+          else if (dataSort?.result?.success == true && dataSort.result.reordered_ids) {
+            // ========== ACTION DE TRI ==========
+            console.log("🎯 Traitement tri (reordered_ids)");
+            const orderedIds = (dataSort.result.reordered_ids ?? []).map(String);
+
+            if (orderedIds.length > 0) {
+              const reordered = window.MediaAlbumFunctions.reorderMediaByIds(
+                albumGrp,
+                orderedIds,
+              );
+              if (reordered) {
+                console.log("✅ Médias réorganisés selon le tri");
+              }
+            }
+
+            actionBtn.disabled = true;
+            actionBtn.classList.remove("is-loading");
+            const albumView = actionBtn.closest(lightTableContentClass);
+            if (albumView && albumGrp)
+              updateSelectionCountForGroup(albumView, albumGrp);
+          }
+          else {
+            // Erreur
+            const errorMsg = dataAction?.result?.message || dataSort?.result?.message || "Erreur inconnue";
+            console.error("❌ Erreur action", errorMsg);
             alert("Une erreur est survenue. Veuillez réessayer.");
           }
         };
 
         // Écouter l'événement jQuery déclenché par InvokeCommand
         (actionBtn._jQuery || jQuery(actionBtn)).on(
-          "actionAjaxResponse",
+          "executeActionResponse",
           function () {
-            actionBtn.handleActionAjaxResponse();
+            actionBtn.handleExecuteActionResponse();
           },
         );
-
-        /* // Écouteur sur le select pour mettre à jour l'état du bouton
-        const actionSelectId = `media-light-table-action-select-${actionBtn.dataset.albumGrp}`;
-        const actionSelect = actionBtn
-          .closest(lightTableContentClass)
-          ?.querySelector(`#${actionSelectId}`);
-        if (actionSelect) {
-          actionSelect.addEventListener("change", () => {
-            const isActionSelected = actionSelect.value !== "none";
-            const hiddenCountField = actionBtn
-              .closest(lightTableContentClass)
-              ?.querySelector(
-                `#selected-items-count-${actionBtn.dataset.albumGrp}`,
-              );
-            const totalSelected = parseInt(hiddenCountField?.value ?? 0);
-            actionBtn.disabled = !isActionSelected || totalSelected === 0;
-          });
-        } */
       });
 
       // --- Fonctions utilitaires ---

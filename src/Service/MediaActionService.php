@@ -2,9 +2,8 @@
 
 namespace Drupal\media_album_light_table_style\Service;
 
-use Drupal\Core\Action\ActionPluginManager;
+use Drupal\Core\Action\ConfigurableActionBase;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
-use Drupal\Core\Plugin\PluginBase;
 use Drupal\Core\Session\AccountInterface;
 
 /**
@@ -39,7 +38,7 @@ class MediaActionService {
   public function __construct(
     $action_plugin_manager,
     EntityTypeManagerInterface $entity_type_manager,
-    AccountInterface $current_user
+    AccountInterface $current_user,
   ) {
     $this->actionPluginManager = $action_plugin_manager;
     $this->entityTypeManager = $entity_type_manager;
@@ -66,13 +65,16 @@ class MediaActionService {
           $action = $this->actionPluginManager->createInstance($action_id);
 
           // Only include configureable actions that have a modal/form.
-          if ($action instanceof \Drupal\Core\Action\ConfigurableActionBase) {
+          if ($action instanceof ConfigurableActionBase) {
             $actions[$action_id] = [
               'id' => $action_id,
               'label' => $definition['label'],
               'category' => $definition['category'] ?? 'Other',
               'description' => $definition['description'] ?? '',
               'configureable' => !empty($definition['confirm']),
+              // JS function to prepare action data for the modal, if defined in the plugin annotation.
+              // not a standard annotation key, but we can use it to specify a custom JS function for preparing data.
+              'prepare_js_function' => $definition['prepare_js_function'] ?? 'prepareActionData',
             ];
           }
         }
