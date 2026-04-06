@@ -1341,7 +1341,7 @@ class MediaAlbumLightTableStyle extends StylePluginBase {
       $node_grouping_fields = $this->groupingConfigService->getAlbumGroupingFields($node);
 
       if (!empty($node_grouping_fields)) {
-        $grouping = $this->convertFieldsToViewGrouping($node_grouping_fields);
+        $grouping = $this->groupingConfigService->convertFieldsToViewGrouping($node_grouping_fields, FALSE);
       }
       else {
         // Si pas de config spécifique, ne pas regrouper davantage.
@@ -1418,33 +1418,6 @@ class MediaAlbumLightTableStyle extends StylePluginBase {
       return $this->view->field[$field_name]->getValue($row);
     }
     return NULL;
-  }
-
-  /**
-   * Convertit les champs de regroupement du service en format attendu par renderGrouping.
-   *
-   * @param array $grouping_fields
-   *   Array de champs préfixés (ex: ['node:field_event', 'media:field_author']).
-   *
-   * @return array
-   *   Format attendu par $this->options['grouping'].
-   */
-  protected function convertFieldsToViewGrouping(array $grouping_fields) {
-    $grouping = [];
-
-    foreach ($grouping_fields as $delta => $prefixed_field) {
-      // Retirer le préfixe node: ou media:
-      $clean_field = preg_replace('/^(node|media):/', '', $prefixed_field);
-
-      $grouping[$delta] = [
-        'field' => $clean_field,
-      // On veut la valeur brute pour le regroupement.
-        'rendered' => FALSE,
-        'rendered_strip' => FALSE,
-      ];
-    }
-
-    return $grouping;
   }
 
   /**
