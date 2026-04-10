@@ -2,6 +2,7 @@
 
 namespace Drupal\media_album_light_table_style\Plugin\views\style;
 
+use Drupal\media\MediaInterface;
 use Drupal\field\Entity\FieldConfig;
 use Drupal\field\Entity\FieldStorageConfig;
 use Drupal\taxonomy\Entity\Vocabulary;
@@ -12,9 +13,11 @@ use Drupal\views\Plugin\views\style\StylePluginBase;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 use Drupal\image\Entity\ImageStyle;
 use Drupal\Core\StreamWrapper\StreamWrapperManagerInterface;
-use Drupal\media_album_light_table_style\Traits\MediaTrait;
+use Drupal\media_album_av_common\Traits\MediaTrait;
 use Drupal\media_album_av_common\Service\AlbumGroupingConfigService;
 use Drupal\node\Entity\Node;
+use Drupal\media_album_light_table_style\Form\MediaLightTableActionsForm;
+use Drupal\Component\Utility\Crypt;
 
 /**
  * A custom style plugin for rendering media album light tables.
@@ -24,8 +27,8 @@ use Drupal\node\Entity\Node;
  * @ingroup views_style_plugins
  *
  * @ViewsStyle(
- *   id = "media_album_light_table_2",
- *   title = @Translation("Media Album Light Table V2"),
+ *   id = "media_album_light_table",
+ *   title = @Translation("Media Album Light Table"),
  *   help = @Translation("Renders a light table specifically for media album items."),
  *   theme = "views_view_media_album_light_table",
  *   display_types = {"normal"}
@@ -59,6 +62,13 @@ class MediaAlbumLightTableStyle extends StylePluginBase {
    * @var \Drupal\media_album_av_common\Service\AlbumGroupingConfigService
    */
   protected AlbumGroupingConfigService $groupingConfigService;
+
+  /**
+   * The media action service.
+   *
+   * @var \Drupal\media_album_light_table_style\Service\MediaActionService
+   */
+  protected $mediaActionService;
 
   /**
    * {@inheritdoc}
@@ -99,12 +109,14 @@ class MediaAlbumLightTableStyle extends StylePluginBase {
     EntityTypeManagerInterface $entity_type_manager,
     StreamWrapperManagerInterface $stream_wrapper_manager,
     AlbumGroupingConfigService $grouping_config_service,
+    $media_action_service,
   ) {
     parent::__construct($configuration, $plugin_id, $plugin_definition);
     $this->fileUrlGenerator = $file_url_generator;
     $this->entityTypeManager = $entity_type_manager;
     $this->streamWrapperManager = $stream_wrapper_manager;
     $this->groupingConfigService = $grouping_config_service;
+    $this->mediaActionService = $media_action_service;
   }
 
   /**
@@ -118,8 +130,8 @@ class MediaAlbumLightTableStyle extends StylePluginBase {
         $container->get('file_url_generator'),
         $container->get('entity_type.manager'),
         $container->get('stream_wrapper_manager'),
-        $container->get('media_album_av_common.album_grouping_config')
-
+        $container->get('media_album_av_common.album_grouping_config'),
+        $container->get('media_album_light_table_style.media_action')
     );
   }
 
@@ -130,13 +142,45 @@ class MediaAlbumLightTableStyle extends StylePluginBase {
     $options = parent::defineOptions();
 
     $options['image_thumbnail_style'] = ['default' => 'medium'];
-    $options['columns'] = ['default' => 4];
-    $options['gap'] = ['default' => '20px'];
+    $options['columns'] = ['default' => 6];
+    $options['gap'] = ['default' => '10px'];
     $options['justify'] = ['default' => 'flex-start'];
     $options['align'] = ['default' => 'stretch'];
     $options['responsive'] = ['default' => TRUE];
     $options['field_groups'] = ['default' => []];
     $options['show_ungrouped'] = ['default' => TRUE];
+    $options['use_actions'] = ['default' => TRUE];
+    $options['use_save_reorg'] = ['default' => TRUE];
+
+    // CSS class/selector overrides.
+    $options['css_selectors'] = [
+      'default' => [
+    // Album container.
+    // Group container.
+        'container' => 'media-light-table-group',
+    // media-grid.
+        'gridContainer' => 'media-light-table-album-container',
+    // One grid (one  group)
+        'mediaItem' => 'media-light-table-media-item',
+    // The zoom/preview button.
+        'zoomTrigger' => 'media-light-table-zoom-trigger',
+    // The Icon that serves as drag handle.
+        'dragHandle' => 'media-light-table-drag-icon',
+    // The menu bar.
+        'menuHandle' => 'media-light-table-menu-handle',
+        'selectedClass' => 'selected',
+    // Album container.
+        'groupContainer' => 'media-light-table-group',
+    // Subform form.
+        'counterWrapper' => 'media-light-table-group-counter-wrapper',
+    // Subform counter.
+        'counter' => 'media-light-table-group-selection-counter',
+    // Subform save button.
+        'saveButton' => 'media-light-table-save-button',
+    // The thumbnail only.
+        'thumbnail' => 'media-light-table-thumbnail',
+      ],
+    ];
 
     return $options;
   }
@@ -155,6 +199,11 @@ class MediaAlbumLightTableStyle extends StylePluginBase {
     else {
       $manage = FALSE;
     }
+
+    // Create a details element for grouping options.
+    $form['grouping']['#type'] = 'details';
+    $form['grouping']['#title'] = $this->t('Grouping options');
+    $form['grouping']['#open'] = FALSE;
 
     // Image styles for thumbnails.
     $image_styles = ImageStyle::loadMultiple();
@@ -175,30 +224,39 @@ class MediaAlbumLightTableStyle extends StylePluginBase {
       $default_style = array_key_first($image_styles);
     }
 
-    $form['columns'] = [
+    $form['visu_params'] = [
+      '#type' => 'details',
+      '#title' => $this->t('Visual parameters'),
+      '#open' => TRUE,
+    ];
+
+    $form['visu_params']['columns'] = [
       '#type' => 'number',
       '#title' => $this->t('Number of columns'),
       '#default_value' => $this->options['columns'],
       '#min' => 1,
       '#max' => 12,
+      '#parents' => ['style_options', 'columns'],
     ];
 
-    $form['gap'] = [
+    $form['visu_params']['gap'] = [
       '#type' => 'textfield',
       '#title' => $this->t('Gap between items'),
       '#default_value' => $this->options['gap'],
       '#description' => $this->t('CSS gap value (e.g., 20px, 1rem, 2em)'),
+      '#parents' => ['style_options', 'gap'],
     ];
 
-    $form['image_thumbnail_style'] = [
+    $form['visu_params']['image_thumbnail_style'] = [
       '#type' => 'select',
       '#title' => $this->t('Thumbnail style'),
       '#options' => $image_thumbnail_style,
       '#default_value' => $this->options['image_thumbnail_style'] ?? $default_style,
       '#description' => $this->t('Select an image style to apply to the thumbnails.'),
+      '#parents' => ['style_options', 'image_thumbnail_style'],
     ];
 
-    $form['justify'] = [
+    $form['visu_params']['justify'] = [
       '#type' => 'select',
       '#title' => $this->t('Justify content'),
       '#options' => [
@@ -210,9 +268,10 @@ class MediaAlbumLightTableStyle extends StylePluginBase {
         'space-evenly' => $this->t('Space evenly'),
       ],
       '#default_value' => $this->options['justify'],
+      '#parents' => ['style_options', 'justify'],
     ];
 
-    $form['align'] = [
+    $form['visu_params']['align'] = [
       '#type' => 'select',
       '#title' => $this->t('Align items'),
       '#options' => [
@@ -223,13 +282,36 @@ class MediaAlbumLightTableStyle extends StylePluginBase {
         'baseline' => $this->t('Baseline'),
       ],
       '#default_value' => $this->options['align'],
+      '#parents' => ['style_options', 'align'],
     ];
 
-    $form['responsive'] = [
+    $form['visu_params']['responsive'] = [
       '#type' => 'checkbox',
       '#title' => $this->t('Responsive grid'),
       '#description' => $this->t('Automatically adjust columns based on screen size'),
       '#default_value' => $this->options['responsive'],
+      '#parents' => ['style_options', 'responsive'],
+    ];
+
+    $form['options'] = [
+      '#type' => 'details',
+      '#title' => $this->t('Options'),
+      '#open' => TRUE,
+    ];
+    $form['options']['use_actions'] = [
+      '#type' => 'checkbox',
+      '#title' => $this->t('Enable actions toolbar'),
+      '#default_value' => $this->options['use_actions'] ?? TRUE,
+      '#description' => $this->t('Display an actions toolbar for media items.'),
+      '#parents' => ['style_options', 'use_actions'],
+    ];
+
+    $form['options']['use_save_reorg'] = [
+      '#type' => 'checkbox',
+      '#title' => $this->t('Enable save button for reorganization'),
+      '#default_value' => $this->options['use_save_reorg'] ?? TRUE,
+      '#description' => $this->t('Display a save button to confirm media reorganization after drag-and-drop.'),
+      '#parents' => ['style_options', 'use_save_reorg'],
     ];
 
     // Récupérer tous les champs disponibles.
@@ -267,31 +349,31 @@ class MediaAlbumLightTableStyle extends StylePluginBase {
     ];
 
     // Zone 2: VBO Actions.
-    $form['field_mapping']['vbo'] = [
-      '#type' => 'details',
-      '#title' => $this->t('VBO Actions Zone'),
-      '#open' => !empty($this->options['field_mapping']['vbo']['enabled']),
+    /*     $form['field_mapping']['vbo'] = [
+    '#type' => 'details',
+    '#title' => $this->t('VBO Actions Zone'),
+    '#open' => !empty($this->options['field_mapping']['vbo']['enabled']),
     ];
 
     $form['field_mapping']['vbo']['enabled'] = [
-      '#type' => 'checkbox',
-      '#title' => $this->t('Enable VBO actions zone'),
-      '#default_value' => $this->options['field_mapping']['vbo']['enabled'] ?? FALSE,
+    '#type' => 'checkbox',
+    '#title' => $this->t('Enable VBO actions zone'),
+    '#default_value' => $this->options['field_mapping']['vbo']['enabled'] ?? FALSE,
     ];
 
     $form['field_mapping']['vbo']['field'] = [
-      '#type' => 'select',
-      '#title' => $this->t('VBO field'),
-      '#options' => $field_options,
-      '#default_value' => $this->options['field_mapping']['vbo']['field'] ?? '',
-      '#description' => $this->t('Select the VBO actions field'),
-      '#states' => [
-        'visible' => [
-          ':input[name="style_options[field_mapping][vbo][enabled]"]' => ['checked' => TRUE],
-        ],
-      ],
+    '#type' => 'select',
+    '#title' => $this->t('VBO field'),
+    '#options' => $field_options,
+    '#default_value' => $this->options['field_mapping']['vbo']['field'] ?? '',
+    '#description' => $this->t('Select the VBO actions field'),
+    '#states' => [
+    'visible' => [
+    ':input[name="style_options[field_mapping][vbo][enabled]"]' => ['checked' => TRUE],
+    ],
+    ],
     ];
-
+     */
     // Zone 3: Name.
     $form['field_mapping']['name'] = [
       '#type' => 'details',
@@ -331,33 +413,33 @@ class MediaAlbumLightTableStyle extends StylePluginBase {
       '#default_value' => $this->options['field_mapping']['details']['enabled'] ?? TRUE,
       '#description' => $this->t('Display media details popup (filename, size, MIME type, dimensions, media type)'),
     ];
-
+    /*
     // Zone 5: Action.
     $form['field_mapping']['action'] = [
-      '#type' => 'details',
-      '#title' => $this->t('Action Zone'),
-      '#open' => !empty($this->options['field_mapping']['action']['enabled']),
+    '#type' => 'details',
+    '#title' => $this->t('Action Zone'),
+    '#open' => !empty($this->options['field_mapping']['action']['enabled']),
     ];
 
     $form['field_mapping']['action']['enabled'] = [
-      '#type' => 'checkbox',
-      '#title' => $this->t('Enable action zone'),
-      '#default_value' => $this->options['field_mapping']['action']['enabled'] ?? TRUE,
+    '#type' => 'checkbox',
+    '#title' => $this->t('Enable action zone'),
+    '#default_value' => $this->options['field_mapping']['action']['enabled'] ?? TRUE,
     ];
 
     $form['field_mapping']['action']['field'] = [
-      '#type' => 'select',
-      '#title' => $this->t('Action field'),
-      '#options' => $field_options,
-      '#default_value' => $this->options['field_mapping']['action']['field'] ?? '',
-      '#description' => $this->t('Select a field that points to media actions'),
-      '#states' => [
-        'visible' => [
-          ':input[name="style_options[field_mapping][action][enabled]"]' => ['checked' => TRUE],
-        ],
-      ],
+    '#type' => 'select',
+    '#title' => $this->t('Action field'),
+    '#options' => $field_options,
+    '#default_value' => $this->options['field_mapping']['action']['field'] ?? '',
+    '#description' => $this->t('Select a field that points to media actions'),
+    '#states' => [
+    'visible' => [
+    ':input[name="style_options[field_mapping][action][enabled]"]' => ['checked' => TRUE],
+    ],
+    ],
     ];
-
+     */
     // Zone 6: Preview (uses media URL automatically)
     $form['field_mapping']['preview'] = [
       '#type' => 'details',
@@ -370,6 +452,105 @@ class MediaAlbumLightTableStyle extends StylePluginBase {
       '#title' => $this->t('Enable preview zone'),
       '#default_value' => $this->options['field_mapping']['preview']['enabled'] ?? TRUE,
       '#description' => $this->t('Display a zoom button to preview the media'),
+    ];
+
+    // CSS Selectors configuration.
+    $form['css_selectors'] = [
+      '#type' => 'details',
+      '#title' => $this->t('CSS Selectors'),
+      '#open' => FALSE,
+      '#weight' => 15,
+      '#tree' => TRUE,
+    ];
+
+    $form['css_selectors']['description'] = [
+      '#markup' => '<p>' . $this->t('Customize CSS class names and selectors used by JavaScript components. These values are made available to JS via drupalSettings. Enter class names without the dot (.) prefix.') . '</p>',
+    ];
+
+    $css_defaults = $this->options['css_selectors'];
+
+    $form['css_selectors']['container'] = [
+      '#type' => 'textfield',
+      '#title' => $this->t('Light table container selector'),
+      '#default_value' => $css_defaults['container'] ?? 'light-table-content',
+      '#description' => $this->t('CSS selector for the main light table container'),
+    ];
+
+    $form['css_selectors']['gridContainer'] = [
+      '#type' => 'textfield',
+      '#title' => $this->t('Media grid container selector'),
+      '#default_value' => $css_defaults['gridContainer'] ?? 'media-light-table-album-container',
+      '#description' => $this->t('CSS selector for the media grid container'),
+    ];
+
+    $form['css_selectors']['mediaItem'] = [
+      '#type' => 'textfield',
+      '#title' => $this->t('Media item selector'),
+      '#default_value' => $css_defaults['mediaItem'] ?? 'media-light-table-media-item',
+      '#description' => $this->t('CSS selector for individual media items'),
+    ];
+
+    $form['css_selectors']['zoomTrigger'] = [
+      '#type' => 'textfield',
+      '#title' => $this->t('Zoom trigger selector'),
+      '#default_value' => $css_defaults['zoomTrigger'] ?? 'media-light-table-zoom-trigger',
+      '#description' => $this->t('CSS selector for zoom/preview trigger button'),
+    ];
+
+    $form['css_selectors']['dragHandle'] = [
+      '#type' => 'textfield',
+      '#title' => $this->t('Drag handle selector'),
+      '#default_value' => $css_defaults['dragHandle'] ?? 'media-light-table-drag-icon',
+      '#description' => $this->t('CSS selector for drag handle element'),
+    ];
+
+    $form['css_selectors']['menuHandle'] = [
+      '#type' => 'textfield',
+      '#title' => $this->t('Menu handle selector'),
+      '#default_value' => $css_defaults['menuHandle'] ?? 'draggable-flexgrid__menu-handle',
+      '#description' => $this->t('CSS selector for menu handle element'),
+    ];
+
+    $form['css_selectors']['selectedClass'] = [
+      '#type' => 'textfield',
+      '#title' => $this->t('Selected class name'),
+      '#default_value' => $css_defaults['selectedClass'] ?? 'selected',
+      '#description' => $this->t('CSS class name applied to selected items (without dot)'),
+    ];
+
+    $form['css_selectors']['groupContainer'] = [
+      '#type' => 'textfield',
+      '#title' => $this->t('Group container selector'),
+      '#default_value' => $css_defaults['groupContainer'] ?? 'draggable-flexgrid__group-container',
+      '#description' => $this->t('CSS selector for group container element'),
+    ];
+
+    $form['css_selectors']['counterWrapper'] = [
+      '#type' => 'textfield',
+      '#title' => $this->t('Counter wrapper class'),
+      '#default_value' => $css_defaults['counterWrapper'] ?? 'media-light-table-group-counter-wrapper',
+      '#description' => $this->t('CSS class for counter wrapper (without dot)'),
+    ];
+
+    $form['css_selectors']['counter'] = [
+      '#type' => 'textfield',
+      '#title' => $this->t('Counter class'),
+      '#default_value' => $css_defaults['counter'] ?? 'media-light-table-group-selection-counter',
+      '#description' => $this->t('CSS class for counter element (without dot)'),
+    ];
+
+    $form['css_selectors']['saveButton'] = [
+      '#type' => 'textfield',
+      '#title' => $this->t('Save button class'),
+      '#default_value' => $css_defaults['saveButton'] ?? 'media-light-table-save-button',
+      '#description' => $this->t('CSS class for save button (without dot)'),
+    ];
+
+    $form['css_selectors']['thumbnail'] = [
+      '#type' => 'textfield',
+      '#title' => $this->t('Thumbnail selector'),
+      '#default_value' => $css_defaults['thumbnail'] ?? '.media-light-table-thumbnail',
+      '#description' => $this->t('CSS selector for thumbnail image'),
     ];
 
   }
@@ -423,15 +604,70 @@ class MediaAlbumLightTableStyle extends StylePluginBase {
 
     // Vérifier si NID est présent dans les résultats.
     $nid_field = $this->getNidFieldName();
+
+    // Check if there's any grouping configured.
+    $has_grouping = !empty($this->options['grouping']) && array_filter($this->options['grouping']);
+
     // Variable temporaire pour le passage par référence.
-    if ($nid_field) {
+    if ($nid_field && $has_grouping) {
       // Mode "regroupement par album" spécifique à chaque node.
       $build['#groups'] = $this->renderWithPerNodeGroupingLightTable($nid_field, $build);
     }
-    else {
+    elseif ($has_grouping) {
       // Mode standard : utiliser les champs de regroupement de la vue.
       $grouped_rows = $this->renderGrouping($this->view->result, $this->options['grouping'], TRUE);
-      $build['#groups'] = $this->processGroupRecursiveLightTable($grouped_rows, $build, NULL, $this->options['grouping']);
+      $build['#groups'] = $this->processGroupRecursiveLightTable($grouped_rows, $this->view->result, $build, $this->options['grouping']);
+    }
+    elseif (isset($this->view->directoryGrouping)) {
+      // Mode regroupement par repertoire pour media_drop_manage.
+      $grouped_rows = $this->renderGrouping($this->view->result, $this->view->directoryGrouping, TRUE);
+      $build['#groups'] = $this->processGroupRecursiveLightTable($grouped_rows, $this->view->result, $build, $this->view->directoryGrouping);
+    }
+    else {
+      // No grouping : afficher simplement les médias sans regroupement
+      // Normalize the results through renderGrouping with empty config to ensure proper structure.
+      $grouped_rows = $this->renderGrouping($this->view->result, [], TRUE);
+
+      $build['#groups'] = [];
+      $idx = rand();
+
+      // Extract rows from the first (and only) group structure.
+      if (!empty($grouped_rows) && isset(reset($grouped_rows)['rows'])) {
+        $rows = reset($grouped_rows)['rows'];
+
+        // Try to extract NID from the first row if available.
+        $first_row = reset($rows);
+        $nid = $first_row->nid ?? NULL;
+
+        $album_data = $this->buildAlbumDataFromGroup($rows, $idx, $nid);
+        if ($album_data) {
+          $album_grp_id = rand();
+          $action_form = \Drupal::formBuilder()->getForm(
+          MediaLightTableActionsForm::class,
+          $album_grp_id,
+          $this->mediaActionService->getAvailableActions(),
+          $this->options['use_actions'] ?? 1,
+          $this->options['use_save_reorg'] ?? 0
+          );
+          $build['#groups'][] = [
+            'group_title' => '',
+            'level' => 0,
+            'albums' => [$album_data],
+            'subgroups' => [],
+            'termid' => 0,
+            'taxo_name' => '',
+            'nid' => $nid,
+            'node_title' => '',
+            'album_group' => $album_grp_id,
+            'groupid' => 'album-no-grouping',
+            'field_type' => NULL,
+            'field_target_type' => NULL,
+            'field_name' => NULL,
+            'term_weight' => 0,
+            'info_action' => $action_form,
+          ];
+        }
+      }
     }
 
     // Filter out empty groups recursively (groups without albums and without subgroups).
@@ -444,36 +680,45 @@ class MediaAlbumLightTableStyle extends StylePluginBase {
     // Add grouped fields for template.
     $build['#grouped_fields'] = $this->getGroupedFields();
 
+    // Load available actions for media.
+    $build['#available_actions'] = $this->mediaActionService->getAvailableActions();
+
     // Ajouter les librairies.
     // Dragula must be loaded FIRST before draggable-flexgrid can use it.
-    $build['#attached']['library'][] = 'media_album_av_common/dragula';
+    // $build['#attached']['library'][] = 'media_album_av_common/dragula';.
     $build['#attached']['library'][] = 'media_album_av_common/sortablejs';
-    $build['#attached']['library'][] = 'media_album_av_common/draggable-flexgrid';
-    $build['#attached']['library'][] = 'media_album_av_common/draggable-flexgrid-light-table-groups';
+    $build['#attached']['library'][] = 'media_album_light_table_style/media-light-table';
+    // $build['#attached']['library'][] = 'media_album_av_common/draggable-flexgrid';
     // Load custom media item selection library.
-    $build['#attached']['library'][] = 'media_album_av_common/draggable-flexgrid-light-table-selection';
-
-    // Load VBO libraries if the view uses Views Bulk Operations.
-    // This ensures proper styling of checkboxes and bulk actions dropbutton.
-    if (!empty($this->view->getHandlers('field')['views_bulk_operations_bulk_form'])) {
-      // Load the official dropbutton library (maps to correct theme CSS).
-      $build['#attached']['library'][] = 'core/drupal.dropbutton';
-      // Load VBO specific libraries and behaviors.
-      $build['#attached']['library'][] = 'views_bulk_operations/vbo';
-    }
-
+    // $build['#attached']['library'][] = 'media_album_light_table_style/media-light-table-selection';
+    // Load media modal libraries (zoom and edit).
+    // $build['#attached']['library'][] = 'media_album_light_table_style/media-light-table-modal';
+    // Modal JS/CSS are already included in media-light-table library
+    // $build['#attached']['library'][] = 'media_album_av_common/media-light-table-edit-modal';
+    // $form['#attached']['library'][] = 'core/drupal.ajax';
+    // Load media actions library.
+    // $build['#attached']['library'][] = 'media_album_light_table_style/media-light-table-actions';
     // Ajouter les settings pour JavaScript.
     $build['#attached']['drupalSettings']['draggableFlexGrid'] = [
       'view_id' => $this->view->id(),
       'display_id' => $this->view->current_display,
     ];
+
+    // Pass available actions to drupalSettings.
+    $build['#attached']['drupalSettings']['mediaLightTableActions'] = [
+      'available_actions' => $build['#available_actions'],
+    ];
+
     foreach ($build['#groups'] as $group) {
       // Passer l'album group pour chaque groupe.
       $album_grp[] = $group['album_group'] ?? NULL;
     }
+
+    // Get CSS selectors from options with fallback defaults.
+    $css_selectors = $this->options['css_selectors'] ?? $this->defineOptions()['css_selectors']['default'];
     $build['#attached']['drupalSettings']['dragtool'] = [
       'dragtool' => 'sortable',
-      'dragula' => [
+      /* 'dragula' => [
         'options' => [
           'revertOnSpill' => TRUE,
           'removeOnSpill' => FALSE,
@@ -484,22 +729,22 @@ class MediaAlbumLightTableStyle extends StylePluginBase {
           'scroll' => FALSE,
           'albumsGroup' => $album_grp ?? [],
         ],
-        'dragitems' => '.js-draggable-item',
-        'handler' => '.draggable-flexgrid__handle',
-        'containers' => '.js-draggable-flexgrid',
+        'dragitems' => "." . $css_selectors['mediaItem'],
+        'handler' => "." . $css_selectors['dragHandle'],
+        'containers' => "." . $css_selectors['gridContainer'],
         'excludeSelector' => '.media-drop-info-wrapper',
         'callbacks' => [
           'saveorder' => 'media-drop/draggable-flexgrid/save-order',
         ],
-      ],
+      ], */
       'sortable' => [
         'options' => [
           'animation' => 150,
           'delayOnTouchOnly' => TRUE,
           'swapThreshold' => 0.85,
           'touchStartThreshold' => 4,
-          'handle' => '.media-light-table-drag-icon',
-          'draggable' => '.media-light-table-media-item',
+          'handle' => "." . $css_selectors['dragHandle'],
+          'draggable' => "." . $css_selectors['mediaItem'],
           'ghostClass' => 'sortable-ghost',
           'chosenClass' => 'sortable-chosen',
           'scroll' => TRUE,
@@ -507,12 +752,40 @@ class MediaAlbumLightTableStyle extends StylePluginBase {
           'bubbleScroll' => FALSE,
         ],
         'albumsGroup' => $album_grp ?? [],
-        'containers' => '.media-light-table-album-container',
         'callbacks' => [
           'saveorder' => 'media-drop/draggable-flexgrid/save-order',
         ],
       ],
+      'lightTable' => [
+        'container' => $css_selectors['container'],
+        'gridContainer' => $css_selectors['gridContainer'],
+        'mediaItem' => $css_selectors['mediaItem'],
+        'zoomTrigger' => $css_selectors['zoomTrigger'],
+        'dragHandle' => $css_selectors['dragHandle'],
+        'menuHandle' => $css_selectors['menuHandle'],
+        'selectedClass' => $css_selectors['selectedClass'],
+        'groupContainer' => $css_selectors['groupContainer'],
+        'counterWrapper' => $css_selectors['counterWrapper'],
+        'counter' => $css_selectors['counter'],
+        'saveButton' => $css_selectors['saveButton'],
+        'thumbnail' => $css_selectors['thumbnail'],
+      ],
+      'callbacks' => [
+        'saveMediaOrder' => 'media-album-av-common/save-media-order',
+      ],
     ];
+
+    // 1. Préparer les éléments de sécurité uniques pour ce rendu.
+    $session_id = \Drupal::service('session_manager')->getId();
+    $private_key = \Drupal::service('private_key')->get();
+    $render_id = Crypt::randomBytesBase64(8);
+    $s_token = Crypt::hmacBase64($render_id, $session_id . $private_key);
+
+    // 2. Injecter récursivement via la méthode privée.
+    $this->injectSecurityTokens($build['#groups'], $s_token, $render_id);
+
+    // 3. Sécuriser le cache.
+    $build['#cache']['contexts'][] = 'session';
 
     return $build;
   }
@@ -627,8 +900,12 @@ class MediaAlbumLightTableStyle extends StylePluginBase {
    *
    * @param array $groups
    *   The grouping structure returned by renderGrouping().
+   * @param array $result
+   *   The full view result set.
    * @param array &$build
    *   The build array (passed by reference to add settings).
+   * @param array $grouping
+   *   The grouping configuration from the view.
    * @param int $depth
    *   Current depth (for debug/styling).
    *
@@ -638,6 +915,9 @@ class MediaAlbumLightTableStyle extends StylePluginBase {
   private function processGroupRecursiveLightTable(array $groups, array $result, array &$build, array $grouping, int $depth = 0, $idx = 0, $album_grp = NULL) {
 
     $processed = [];
+
+    // Get term sorting configuration if available.
+    $term_sort_config = $this->getTermSortConfiguration($groups, $result, $depth, $grouping);
 
     foreach ($groups as $group_key => $group_data) {
       $idx = rand();
@@ -649,6 +929,7 @@ class MediaAlbumLightTableStyle extends StylePluginBase {
       $field_type = NULL;
       $field_target_type = NULL;
       $field_name = NULL;
+      $field_entity_type = NULL;
       $node_id = NULL;
       if (!empty($grouping[$depth])) {
         $grouping_field = $grouping[$depth]['field'] ?? NULL;
@@ -660,6 +941,7 @@ class MediaAlbumLightTableStyle extends StylePluginBase {
 
           if ($entity) {
             $entity_type_id = $entity->getEntityTypeId();
+            $field_entity_type = $entity_type_id;
 
             // Use entity_field.manager service to get field definitions.
             $field_manager = \Drupal::service('entity_field.manager');
@@ -719,6 +1001,8 @@ class MediaAlbumLightTableStyle extends StylePluginBase {
                         if ($target_type) {
                           // Récupérer le field handler['field'] sur l'entité cible.
                           $target_field_name = $handler['field'];
+                          // Update field_entity_type to the target entity type.
+                          $field_entity_type = $target_type;
 
                           // Charger le FieldStorageConfig.
                           $target_field_storage_def = FieldStorageConfig::loadByName($target_type, $target_field_name);
@@ -789,6 +1073,18 @@ class MediaAlbumLightTableStyle extends StylePluginBase {
         // Term could not be loaded.
         $term = '!--!';
       }
+      // Convert group_key to string to match JSON keys.
+      $group_key_str = (string) $group_key;
+
+      // Build prefixed field name with entity type prefix (e.g., "media:field_name").
+      $prefixed_field_name = NULL;
+      if (!empty($field_name) && !empty($field_entity_type)) {
+        $prefixed_field_name = $field_entity_type . ':' . $field_name;
+      }
+      elseif (!empty($target_field_name) && !empty($field_entity_type)) {
+        $prefixed_field_name = $field_entity_type . ':' . $target_field_name;
+      }
+
       $group_item = [
         'group_title' => (is_object($term) ? $term->label() : $term) ?? '--',
         'level' => $group_data['level'] ?? $depth,
@@ -802,9 +1098,22 @@ class MediaAlbumLightTableStyle extends StylePluginBase {
         'groupid' => 'album-group-' . $idx,
         'field_type' => $field_type,
         'field_target_type' => $field_target_type,
-        'field_name' => $field_name,
+        'field_name' => $prefixed_field_name,
+        'term_weight' => $term_sort_config[$group_key_str] ?? 0,
       ];
 
+      if ($depth == 0) {
+        // 1. On récupère le rendu du mini-formulaire
+        $action_form = \Drupal::formBuilder()->getForm(
+          MediaLightTableActionsForm::class,
+          $album_grp,
+          $this->mediaActionService->getAvailableActions(),
+          $this->options['use_actions'] ?? 1,
+          $this->options['use_save_reorg'] ?? 0
+          );
+        // On passe le formulaire au Twig.
+        $group_item['info_action'] = $action_form;
+      }
       // Check if this group contains rows (final results)
       if (isset($group_data['rows']) && is_array($group_data['rows']) && !empty($group_data['rows'])) {
 
@@ -824,7 +1133,7 @@ class MediaAlbumLightTableStyle extends StylePluginBase {
           );
         }
         else {
-          $r = $this->buildAlbumDataFromGroup($group_data['rows'], $idx);
+          $r = $this->buildAlbumDataFromGroup($group_data['rows'], $idx, $group_item['nid'] ?? NULL);
           if ($r) {
             $group_item['albums'][] = $r;
           }
@@ -834,7 +1143,95 @@ class MediaAlbumLightTableStyle extends StylePluginBase {
       $processed[] = $group_item;
     }
 
+    // Sort groups by term weight if configuration exists.
+    if (!empty($term_sort_config)) {
+      usort($processed, function ($a, $b) {
+        return ($a['term_weight'] ?? 0) <=> ($b['term_weight'] ?? 0);
+      });
+    }
+
     return $processed;
+  }
+
+  /**
+   * Get term sort configuration for a grouping level from node's grouping field.
+   *
+   * @param int $level
+   *   The grouping level (0, 1, 2, etc.).
+   *
+   * @return array
+   *   Array mapping term IDs to weights, or empty array if not available.
+   */
+  private function getTermSortConfiguration(array $groups, array $result, int $level, array $grouping) {
+    try {
+      // Get the first node (album) from the view results.
+      if (empty($groups) || empty($result)) {
+        return [];
+      }
+
+      $row = reset($result);
+      $entity = $row->_entity ?? NULL;
+
+      if (!$entity || $entity->getEntityTypeId() !== 'node') {
+        return [];
+      }
+
+      // The configuration is stored in a dynamic field (from settings), not a hardcoded field!
+      $config = \Drupal::config('media_album_av.settings');
+      $config_field = $config->get('grouping_config_field') ?? 'field_media_album_av_grouping';
+
+      if (!$entity->hasField($config_field)) {
+        \Drupal::logger('media_album_light_table_style')->debug(
+          'DEBUG: Entity does not have config field @field',
+          ['@field' => $config_field]
+        );
+        return [];
+      }
+
+      // Load all grouping configurations from the configuration field.
+      $grouping_data = $entity->get($config_field)->getValue();
+
+      \Drupal::logger('media_album_light_table_style')->debug(
+        'DEBUG: At level @level, found @count config items',
+        ['@level' => $level, '@count' => count($grouping_data)]
+      );
+
+      // Find the configuration for this specific level (index by position).
+      if (isset($grouping_data[$level]) && !empty($grouping_data[$level]['value'])) {
+        $config = json_decode($grouping_data[$level]['value'], TRUE);
+        \Drupal::logger('media_album_light_table_style')->debug(
+          'DEBUG: Decoded config at level @level: field=@field, terms_count=@count',
+          [
+            '@level' => $level,
+            '@field' => $config['field'] ?? 'N/A',
+            '@count' => !empty($config['terms']) ? count($config['terms']) : 0,
+          ]
+        );
+        if (!empty($config['terms'])) {
+          \Drupal::logger('media_album_light_table_style')->debug(
+            'Found term config at level @level with weights: @config',
+            ['@level' => $level, '@config' => json_encode($config['terms'])]
+          );
+          // Return term weights indexed by term ID (as strings).
+          return $config['terms'];
+        }
+      }
+      else {
+        \Drupal::logger('media_album_light_table_style')->debug(
+          'DEBUG: No data at index @level (available: @count items)',
+          ['@level' => $level, '@count' => count($grouping_data)]
+        );
+      }
+
+      return [];
+    }
+    catch (\Exception $e) {
+      \Drupal::logger('media_album_light_table_style')->error(
+        'Error getting term sort configuration at level @level: @message',
+        ['@level' => $level, '@message' => $e->getMessage()]
+          );
+      return [];
+    }
   }
 
   /**
@@ -848,7 +1245,7 @@ class MediaAlbumLightTableStyle extends StylePluginBase {
    * @return array|null
    *   The album data or NULL on error.
    */
-  private function buildAlbumDataFromGroup($rows, $group_index) {
+  private function buildAlbumDataFromGroup($rows, $group_index, $nid = NULL) {
     $medias = [];
 
     foreach ($rows as $index => $row) {
@@ -857,7 +1254,12 @@ class MediaAlbumLightTableStyle extends StylePluginBase {
       // Get the media entity from the row.
       $media = NULL;
 
-      $media = $this->getReferencedMediaEntity($row);
+      if ($row->_entity instanceof MediaInterface) {
+        $media = $row->_entity;
+      }
+      else {
+        $media = $this->getReferencedMediaEntity($row);
+      }
 
       if (!$media) {
         continue;
@@ -885,6 +1287,7 @@ class MediaAlbumLightTableStyle extends StylePluginBase {
       'id' => $album_id,
       'group_index' => $group_index,
       'medias' => $medias,
+      'nid' => $nid,
     ];
   }
 
@@ -938,7 +1341,7 @@ class MediaAlbumLightTableStyle extends StylePluginBase {
       $node_grouping_fields = $this->groupingConfigService->getAlbumGroupingFields($node);
 
       if (!empty($node_grouping_fields)) {
-        $grouping = $this->convertFieldsToViewGrouping($node_grouping_fields);
+        $grouping = $this->groupingConfigService->convertFieldsToViewGrouping($node_grouping_fields, FALSE);
       }
       else {
         // Si pas de config spécifique, ne pas regrouper davantage.
@@ -1018,33 +1421,6 @@ class MediaAlbumLightTableStyle extends StylePluginBase {
   }
 
   /**
-   * Convertit les champs de regroupement du service en format attendu par renderGrouping.
-   *
-   * @param array $grouping_fields
-   *   Array de champs préfixés (ex: ['node:field_event', 'media:field_author']).
-   *
-   * @return array
-   *   Format attendu par $this->options['grouping'].
-   */
-  protected function convertFieldsToViewGrouping(array $grouping_fields) {
-    $grouping = [];
-
-    foreach ($grouping_fields as $delta => $prefixed_field) {
-      // Retirer le préfixe node: ou media:
-      $clean_field = preg_replace('/^(node|media):/', '', $prefixed_field);
-
-      $grouping[$delta] = [
-        'field' => $clean_field,
-      // On veut la valeur brute pour le regroupement.
-        'rendered' => FALSE,
-        'rendered_strip' => FALSE,
-      ];
-    }
-
-    return $grouping;
-  }
-
-  /**
    *
    */
   protected function getFieldLabel($field_name, $entity) {
@@ -1102,6 +1478,37 @@ class MediaAlbumLightTableStyle extends StylePluginBase {
     // Fallback : utiliser le nom système du champ.
     if (!$grouping_label) {
       $grouping_label = $grouping_field;
+    }
+  }
+
+  /**
+   * Inject security tokens recursively into the groups structure.
+   *
+   * @param array $groups
+   *   The groups array to process.
+   * @param string $s_token
+   *   The generated HMAC token.
+   * @param string $render_id
+   *   The random render ID.
+   */
+  private function injectSecurityTokens(array &$groups, string $s_token, string $render_id) {
+    foreach ($groups as &$group) {
+      // On injecte les tokens au niveau du groupe.
+      $group['s_token'] = $s_token;
+      $group['s_id'] = $render_id;
+
+      // Si le groupe contient des albums, on les marque aussi.
+      if (!empty($group['albums'])) {
+        foreach ($group['albums'] as &$album) {
+          $album['s_token'] = $s_token;
+          $album['s_id'] = $render_id;
+        }
+      }
+
+      // Si on a des sous-groupes, on descend d'un niveau (récursivité).
+      if (!empty($group['subgroups'])) {
+        $this->injectSecurityTokens($group['subgroups'], $s_token, $render_id);
+      }
     }
   }
 
