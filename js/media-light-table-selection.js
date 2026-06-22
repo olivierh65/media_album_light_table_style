@@ -205,6 +205,24 @@
       };
     },
 
+    prepareBulkEditData: function (albumGrp) {
+      if (!albumGrp) return null;
+
+      const selectedItems =
+        window.MediaAlbumFunctions._getSelectedMedia(albumGrp);
+      if (selectedItems.length === 0) return null;
+
+      const allItems = window.MediaAlbumFunctions._getAllMedia(albumGrp);
+
+      return {
+        action: "bulk_edit",
+        album_grp: albumGrp,
+        selected_items: selectedItems,
+        all_items: allItems,
+        timestamp: new Date().toISOString(),
+      };
+    },
+
     prepareActionData: function (albumGrp) {
       const albumView = document.querySelector(
         `${groupContainerClass}[data-album-grp="${albumGrp}"]`,
@@ -281,7 +299,7 @@
       // Notifier Sortable du changement via les événements
       gridsInGroup.forEach((grid) => {
         // Déclencher l'événement sortupdate sur chaque grille
-        const event = new CustomEvent('sortupdate', { detail: { from: grid } });
+        const event = new CustomEvent("sortupdate", { detail: { from: grid } });
         grid.dispatchEvent(event);
       });
 
@@ -671,7 +689,10 @@
           const albumGrp = actionBtn.dataset.albumGrp;
 
           // 🎯 Déterminer quel type d'action a été exécutée
-          if (dataAction?.result?.success == true && dataAction.result.moved_ids) {
+          if (
+            dataAction?.result?.success == true &&
+            dataAction.result.moved_ids
+          ) {
             // ========== ACTION DE DÉPLACEMENT ==========
             console.log("🎯 Traitement déplacement (moved_ids)");
             const movedIds = (dataAction.result.moved_ids ?? []).map(String);
@@ -692,11 +713,15 @@
             const albumView = actionBtn.closest(lightTableContentClass);
             if (albumView && albumGrp)
               updateSelectionCountForGroup(albumView, albumGrp);
-          }
-          else if (dataSort?.result?.success == true && dataSort.result.reordered_ids) {
+          } else if (
+            dataSort?.result?.success == true &&
+            dataSort.result.reordered_ids
+          ) {
             // ========== ACTION DE TRI ==========
             console.log("🎯 Traitement tri (reordered_ids)");
-            const orderedIds = (dataSort.result.reordered_ids ?? []).map(String);
+            const orderedIds = (dataSort.result.reordered_ids ?? []).map(
+              String,
+            );
 
             if (orderedIds.length > 0) {
               const reordered = window.MediaAlbumFunctions.reorderMediaByIds(
@@ -713,10 +738,12 @@
             const albumView = actionBtn.closest(lightTableContentClass);
             if (albumView && albumGrp)
               updateSelectionCountForGroup(albumView, albumGrp);
-          }
-          else {
+          } else {
             // Erreur
-            const errorMsg = dataAction?.result?.message || dataSort?.result?.message || "Erreur inconnue";
+            const errorMsg =
+              dataAction?.result?.message ||
+              dataSort?.result?.message ||
+              "Erreur inconnue";
             console.error("❌ Erreur action", errorMsg);
             alert("Une erreur est survenue. Veuillez réessayer.");
           }
