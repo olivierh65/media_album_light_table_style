@@ -769,6 +769,7 @@ class MediaAlbumLightTableStyle extends StylePluginBase {
         'counter' => $css_selectors['counter'],
         'saveButton' => $css_selectors['saveButton'],
         'thumbnail' => $css_selectors['thumbnail'],
+        'mediaInfoCallback' => '/media-light-table/media-info/',
       ],
       'callbacks' => [
         'saveMediaOrder' => 'media-album-av-common/save-media-order',

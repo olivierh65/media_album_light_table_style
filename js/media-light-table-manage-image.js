@@ -23,42 +23,22 @@
 
       const $modal = $('#image-modal');
 
-      // Collecter toutes les images AVEC leur taille
-      this.images = [];
+      // Cache des infos media déjà récupérées depuis le serveur.
+      this.mediaInfoCache = {};
+
+      // Construire la liste ordonnée des media_id à partir des éléments présents dans le DOM.
+      // Aucune donnée sensible n'est lue depuis le HTML : seul l'ID est nécessaire.
+      this.mediaIds = [];
       $('.draggable-flexgrid__item').each(function(index) {
         const $item = $(this);
         const $trigger = $item.find('.media-drop-zoom-trigger, .media-light-table-zoom-trigger');
-        const $img = $item.find('img');
-        const $fullImage = $item.find('.media-drop-thumbnail, .media-light-table-thumbnail');
 
         if ($trigger.length) {
-          // Récupérer la taille de l'image depuis data-image-size
-          let width = 0, height = 0;
-          const sizeData = $fullImage.data('image-size');
-          if (sizeData) {
-            const sizeParts = sizeData.split('x');
-            if (sizeParts.length === 2) {
-              width = parseInt(sizeParts[0]) || 0;
-              height = parseInt(sizeParts[1]) || 0;
-            }
+          const mediaId = parseInt($trigger.data('media-id') || $item.find('[data-media-id]').first().data('media-id'), 10);
+          if (mediaId > 0) {
+            self.mediaIds.push(mediaId);
+            $item.data('media-index', index);
           }
-
-          const isValidImage = width > 0 && height > 0;
-          const mediaType = $trigger.data('media-type') || 'image';
-          const mimeType = $trigger.data('mime-type') || '';
-
-          self.images.push({
-            src: $trigger.data('image-src') || $fullImage.data('image-src') || $img.attr('src'),
-            alt: $trigger.data('image-alt') || $img.attr('alt') || '',
-            width: width,
-            height: height,
-            isValid: isValidImage,
-            index: index,
-            mediaType: mediaType,
-            mimeType: mimeType
-          });
-
-          $item.data('image-index', index);
         }
       });
 
@@ -68,7 +48,7 @@
         e.stopPropagation();
 
         const $item = $(this).closest('.draggable-flexgrid__item');
-        const index = $item.data('image-index') || 0;
+        const index = $item.data('media-index') || 0;
 
         self.openModal(index);
       });
@@ -79,7 +59,7 @@
           e.preventDefault();
 
           const $item = $(this).closest('.draggable-flexgrid__item');
-          const index = $item.data('image-index') || 0;
+          const index = $item.data('media-index') || 0;
 
           self.openModal(index);
         }
@@ -158,6 +138,91 @@
       $(window).on('resize', function() {
         if ($modal.hasClass('active')) {
           self.adjustModalSize();
+        }
+      });
+
+      // ---------------------------------------------------------------
+      // Popup "More…" : fetch des données via callback
+      // ---------------------------------------------------------------
+      $(document).on('click', '.media-light-table-info-button', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+
+        const $wrapper = $(this).closest('.media-light-table-info-wrapper');
+        const $popup   = $wrapper.find('.media-light-table-info-popup');
+        const mediaId  = parseInt($wrapper.data('media-id'), 10);
+
+        // Toggle : si déjà ouvert, fermer.
+        if ($wrapper.hasClass('popup-open')) {
+          $wrapper.removeClass('popup-open');
+          $popup.hide();
+          return;
+        }
+
+        // Fermer les autres popups ouverts.
+        $('.media-light-table-info-wrapper.popup-open').each(function() {
+          $(this).removeClass('popup-open').find('.media-light-table-info-popup').hide();
+        });
+
+        if (!mediaId) return;
+
+        // Si déjà chargé (attribut data-loaded), afficher directement.
+        if ($wrapper.data('popup-loaded')) {
+          $wrapper.addClass('popup-open');
+          $popup.show();
+          return;
+        }
+
+        // Afficher un indicateur de chargement.
+        $popup.html('<span class="media-light-table-popup-loading">' + Drupal.t('Loading…') + '</span>').show();
+        $wrapper.addClass('popup-open');
+
+        self.fetchMediaInfo(mediaId).then(function(info) {
+          const sizeMb = info.size_bytes > 0
+            ? (info.size_bytes / 1024 / 1024).toFixed(2) + ' MB'
+            : '';
+
+          let html = '<span class="media-light-table-image-id media-light-table-popup-field">'
+            + '<strong>' + Drupal.t('ID') + ':</strong> ' + info.id + '</span>';
+
+          if (info.file_name) {
+            html += '<span class="media-light-table-image-name media-light-table-popup-field">'
+              + '<strong>' + Drupal.t('Name') + ':</strong> ' + info.file_name + '</span>';
+          }
+          if (info.file_path) {
+            html += '<span class="media-light-table-image-filepath media-light-table-popup-field">'
+              + '<strong>' + Drupal.t('Path') + ':</strong> ' + info.file_path + '</span>';
+          }
+          if (sizeMb) {
+            html += '<span class="media-light-table-image-size media-light-table-popup-field">'
+              + '<strong>' + Drupal.t('Size') + ':</strong> ' + sizeMb + '</span>';
+          }
+          if (info.mime_type) {
+            html += '<span class="media-light-table-image-mime-type media-light-table-popup-field">'
+              + '<strong>' + Drupal.t('MIME') + ':</strong> ' + info.mime_type + '</span>';
+          }
+          if (info.width > 0 && info.height > 0) {
+            html += '<span class="media-light-table-image-dimensions media-light-table-popup-field">'
+              + '<strong>' + Drupal.t('Dimensions') + ':</strong> ' + info.width + 'x' + info.height + '</span>';
+          }
+          if (info.bundle) {
+            html += '<span class="media-light-table-image-bundle media-light-table-popup-field">'
+              + '<strong>' + Drupal.t('Media Type') + ':</strong> ' + info.bundle + '</span>';
+          }
+
+          $popup.html(html);
+          $wrapper.data('popup-loaded', true);
+        }).catch(function() {
+          $popup.html('<span class="media-light-table-popup-error">' + Drupal.t('Error loading data.') + '</span>');
+        });
+      });
+
+      // Fermer le popup au clic extérieur.
+      $(document).on('click', function(e) {
+        if (!$(e.target).closest('.media-light-table-info-wrapper').length) {
+          $('.media-light-table-info-wrapper.popup-open').each(function() {
+            $(this).removeClass('popup-open').find('.media-light-table-info-popup').hide();
+          });
         }
       });
     },
@@ -345,6 +410,43 @@
       this.adjustModalSize();
     },
 
+    /**
+     * Fetches media info from the server callback and caches the result.
+     * Returns a Promise that resolves with the media info object.
+     */
+    fetchMediaInfo: function(mediaId) {
+      const self = this;
+
+      if (self.mediaInfoCache[mediaId]) {
+        return Promise.resolve(self.mediaInfoCache[mediaId]);
+      }
+
+      const baseUrl = (drupalSettings.dragtool && drupalSettings.dragtool.lightTable && drupalSettings.dragtool.lightTable.mediaInfoCallback)
+        ? drupalSettings.dragtool.lightTable.mediaInfoCallback
+        : '/media-light-table/media-info/';
+
+      return fetch(baseUrl + mediaId, { credentials: 'same-origin' })
+        .then(function(response) {
+          if (!response.ok) {
+            throw new Error('HTTP ' + response.status);
+          }
+          return response.json();
+        })
+        .then(function(data) {
+          const info = {
+            src:       data.url,
+            alt:       data.alt || '',
+            mimeType:  data.mime_type || '',
+            mediaType: data.media_type || 'image',
+            width:     data.width  || 0,
+            height:    data.height || 0,
+            isValid:   (data.width > 0 && data.height > 0),
+          };
+          self.mediaInfoCache[mediaId] = info;
+          return info;
+        });
+    },
+
     openModal: function(index) {
       const self = this;
       const $modal = $('#image-modal');
@@ -353,72 +455,72 @@
       const $imageLoader = $modal.find('.image-loader');
 
       // Vérifier si l'index est valide
-      if (index < 0 || index >= this.images.length) {
-        console.error('Index de l\'image invalide');
+      if (index < 0 || index >= this.mediaIds.length) {
+        console.error('Index media invalide');
         return;
       }
 
-      const image = this.images[index];
-      const isVideo = image.mediaType === 'video';
-
-      // Stocker l'image courante
-      this.currentImage = image;
-
-      // Reset zoom
-      this.currentZoom = 1;
-
-      // Mettre à jour le titre
-      $modal.find('.modal-title').text(image.alt || Drupal.t('Media preview'));
-
-      // Afficher le loader
+      // Afficher la modale avec le loader pendant le fetch
       $imageLoader.show();
       $modalImage.hide();
       $modalVideo.hide();
-
-      // Afficher la modale
       $modal.addClass('active');
       $modal.find('.modal-overlay').show();
       $('body').css('overflow', 'hidden');
 
-      // Gérer vidéo ou image
-      if (isVideo) {
-        // Afficher la vidéo
-        const videoElement = $modalVideo.get(0);
-        const sourceElement = $modalVideo.find('source').get(0);
+      const mediaId = this.mediaIds[index];
 
-        // Mettre à jour la source
-        sourceElement.src = image.src;
-        sourceElement.type = image.mimeType;
+      this.fetchMediaInfo(mediaId).then(function(image) {
+        const isVideo = image.mediaType === 'video';
 
-        // Charger la vidéo avec les nouvelles sources
-        videoElement.load();
+        // Stocker l'image courante
+        self.currentImage = image;
 
-        // Afficher la vidéo
-        $modalVideo.show();
-        $imageLoader.hide();
+        // Reset zoom
+        self.currentZoom = 1;
 
-        // Ajuster la taille et laisser le temps à la vidéo de charger les métadonnées
-        setTimeout(() => {
-          self.adjustModalSize();
-        }, 100);
-      } else {
-        // Créer une nouvelle image
-        const img = new Image();
+        // Mettre à jour le titre
+        $modal.find('.modal-title').text(image.alt || Drupal.t('Media preview'));
 
-        img.onload = function() {
-          // Vérifier si l'image est réellement chargée
-          if (img.naturalWidth === 0 || img.naturalHeight === 0) {
-            // Image invalide
-            self.showErrorImage();
-            $imageLoader.hide();
-            return;
-          }
+        // Gérer vidéo ou image
+        if (isVideo) {
+          // Afficher la vidéo
+          const videoElement = $modalVideo.get(0);
+          const sourceElement = $modalVideo.find('source').get(0);
 
-          // Mettre à jour les dimensions si elles étaient incorrectes
-          if (!image.width || !image.height || image.width <= 0 || image.height <= 0) {
-            image.width = img.naturalWidth;
-            image.height = img.naturalHeight;
-            image.isValid = true;
+          // Mettre à jour la source
+          sourceElement.src = image.src;
+          sourceElement.type = image.mimeType;
+
+          // Charger la vidéo avec les nouvelles sources
+          videoElement.load();
+
+          // Afficher la vidéo
+          $modalVideo.show();
+          $imageLoader.hide();
+
+          // Ajuster la taille et laisser le temps à la vidéo de charger les métadonnées
+          setTimeout(() => {
+            self.adjustModalSize();
+          }, 100);
+        } else {
+          // Créer une nouvelle image
+          const img = new Image();
+
+          img.onload = function() {
+            // Vérifier si l'image est réellement chargée
+            if (img.naturalWidth === 0 || img.naturalHeight === 0) {
+              // Image invalide
+              self.showErrorImage();
+              $imageLoader.hide();
+              return;
+            }
+
+            // Mettre à jour les dimensions si elles étaient incorrectes
+            if (!image.width || !image.height || image.width <= 0 || image.height <= 0) {
+              image.width = img.naturalWidth;
+              image.height = img.naturalHeight;
+              image.isValid = true;
           }
 
           $modalImage
@@ -436,13 +538,18 @@
         };
 
         img.onerror = function() {
-          console.error('Erreur de chargement de l\'image:', image.src);
-          self.showErrorImage();
-          $imageLoader.hide();
-        };
+            console.error('Erreur de chargement de l\'image:', image.src);
+            self.showErrorImage();
+            $imageLoader.hide();
+          };
 
-        img.src = image.src;
-      }
+          img.src = image.src;
+        }
+      }).catch(function(err) {
+        console.error('Erreur lors de la récupération des infos media:', err);
+        self.showErrorImage();
+        $imageLoader.hide();
+      });
     },
 
     showErrorImage: function() {

@@ -58,51 +58,11 @@
 				</span>
 			</div>
 		{% endif %}
-			{# Media Details - reste inchangé #}
+			{# Media Details - contenu chargé dynamiquement via callback /media-light-table/media-info/{id} #}
 			{% if field_mapping_config.details.enabled %}
-				<div class="media-light-table-info-wrapper media-light-table-details-field" data-once="entity-popup">
+				<div class="media-light-table-info-wrapper media-light-table-details-field" data-media-id="{{ infos.id }}">
 					<button type="button" class="media-light-table-info-button">{{ 'More...'|t }}</button>
-					<div class="media-light-table-info-popup">
-						<span class="media-light-table-image-id media-light-table-popup-field">
-							<strong>{{ 'ID'|t }}:</strong>
-							{{ infos.id }}
-						</span>
-						<span class="media-light-table-image-filepath media-light-table-popup-field">
-							<strong>{{ 'Path'|t }}:</strong>
-							{{ infos.file_path }}
-						</span>
-						<span class="media-light-table-image-size media-light-table-popup-field">
-							<strong>{{ 'Size'|t }}:</strong>
-							{{ (infos.size_bytes / 1024 / 1024)|round(2) }}
-							MB
-						</span>
-						<span class="media-light-table-image-mime-type media-light-table-popup-field">
-							<strong>{{ 'MIME'|t }}:</strong>
-							{{ infos.mime_type }}
-						</span>
-						{% if infos.width > 0 and infos.height > 0 %}
-							<span class="media-light-table-image-dimensions media-light-table-popup-field">
-								<strong>{{ 'Dimensions'|t }}:</strong>
-								{{ infos.width }}x{{ infos.height }}
-							</span>
-						{% endif %}
-						<span class="media-light-table-image-name media-light-table-popup-field">
-							<strong>{{ 'Name'|t }}:</strong>
-							{{ infos.file_name }}
-						</span>
-						{% if infos.bundle %}
-							<span class="media-light-table-image-bundle media-light-table-popup-field">
-								<strong>{{ 'Media Type'|t }}:</strong>
-								{{ infos.bundle }}
-							</span>
-						{% endif %}
-						{% for field_name, field_value in infos.fields %}
-							<span class="media-light-table-image-field media-light-table-popup-field">
-								<strong>{{ field_name }}:</strong>
-								{{ field_value }}
-							</span>
-						{% endfor %}
-					</div>
+					<div class="media-light-table-info-popup" aria-live="polite"></div>
 				</div>
 			{% endif %}
 		</div>
@@ -135,8 +95,8 @@
 				</svg>
 			</div>
 			{% set full_security_query = 's_t=' ~ s_token ~ '&s_id=' ~ s_id ~ '&n_id=' ~ n_id ~ '&m_id=' ~ infos.id %}
-			{% set full_url_sep = (infos.url|split('?')|length > 1) ? '&' : '?' %}
-			<div class="{{ options.css_selectors.zoomTrigger }} draggable-flexgrid__menu-button" role="button" tabindex="0" title="{{ 'View full size'|t }}" aria-label="{{ 'View full size'|t }}" data-image-src="{{ infos.url }}{{ full_url_sep }}{{ full_security_query }}" data-image-alt="{{ image_alt }}" data-mime-type="{{ infos.mime_type }}" data-media-type="{{ infos.mime_type|split('/')|first }}">
+		{% set full_url_sep = (infos.url|split('?')|length > 1) ? '&' : '?' %}
+			<div class="{{ options.css_selectors.zoomTrigger }} draggable-flexgrid__menu-button" role="button" tabindex="0" title="{{ 'View full size'|t }}" aria-label="{{ 'View full size'|t }}" data-media-id="{{ infos.id }}">
 				<svg class="zoom-icon" width="1.8rem" height="1.8rem" viewbox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
 					<circle cx="11" cy="11" r="8"/>
 					<line x1="19" y1="19" x2="28" y2="28" stroke-width="3"/>

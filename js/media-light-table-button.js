@@ -3,6 +3,41 @@
 
   Drupal.behaviors.popupFlexGrid = {
     attach: function (context, settings) {
+      function positionInfoPopup(popup, wrapper) {
+        const padding = 8;
+
+        popup.style.position = "fixed";
+        popup.style.display = "block";
+        popup.style.visibility = "hidden";
+        popup.style.transform = "none";
+        popup.style.zIndex = "99999";
+
+        // Mobile-friendly width/height constraints.
+        const maxWidth = Math.min(560, window.innerWidth - padding * 2);
+        popup.style.width = "min(" + maxWidth + "px, calc(100vw - " + (padding * 2) + "px))";
+        popup.style.maxWidth = maxWidth + "px";
+        popup.style.maxHeight = Math.floor(window.innerHeight * 0.75) + "px";
+        popup.style.overflowY = "auto";
+
+        const popupRect = popup.getBoundingClientRect();
+        const wrapperRect = wrapper.getBoundingClientRect();
+
+        let left = wrapperRect.left + (wrapperRect.width / 2) - (popupRect.width / 2);
+        left = Math.max(padding, Math.min(left, window.innerWidth - popupRect.width - padding));
+
+        let top = wrapperRect.bottom + 6;
+        if (top + popupRect.height > window.innerHeight - padding) {
+          top = wrapperRect.top - popupRect.height - 6;
+        }
+        if (top < padding) {
+          top = padding;
+        }
+
+        popup.style.left = left + "px";
+        popup.style.top = top + "px";
+        popup.style.visibility = "visible";
+      }
+
       // ========================================
       // POPUP - Gestion du menu "Plus..."
       // ========================================
@@ -96,6 +131,108 @@
               delete popup._originalWrapper;
             }
           } else {
+            // For light table wrappers, load popup content through AJAX callback
+            // instead of embedding sensitive values in HTML.
+            if (wrapper.classList.contains("media-light-table-info-wrapper")) {
+              const mediaId = parseInt(wrapper.getAttribute("data-media-id") || "0", 10);
+              const isLoaded = wrapper.getAttribute("data-popup-loaded") === "1";
+
+              if (mediaId > 0 && !isLoaded) {
+                popup.innerHTML =
+                  '<span class="media-light-table-popup-loading">' +
+                  Drupal.t("Loading...") +
+                  "</span>";
+
+                let callbackBase = "/media-light-table/media-info/";
+                if (
+                  drupalSettings &&
+                  drupalSettings.dragtool &&
+                  drupalSettings.dragtool.lightTable &&
+                  drupalSettings.dragtool.lightTable.mediaInfoCallback
+                ) {
+                  callbackBase = drupalSettings.dragtool.lightTable.mediaInfoCallback;
+                }
+
+                fetch(callbackBase + mediaId, { credentials: "same-origin" })
+                  .then(function (response) {
+                    if (!response.ok) {
+                      throw new Error("HTTP " + response.status);
+                    }
+                    return response.json();
+                  })
+                  .then(function (info) {
+                    const sizeMb = info.size_bytes > 0
+                      ? (info.size_bytes / 1024 / 1024).toFixed(2) + " MB"
+                      : "";
+
+                    let html =
+                      '<span class="media-light-table-image-id media-light-table-popup-field">' +
+                      "<strong>" + Drupal.t("ID") + ":</strong> " + (info.id || "") +
+                      "</span>";
+
+                    if (info.file_name) {
+                      html +=
+                        '<span class="media-light-table-image-name media-light-table-popup-field">' +
+                        "<strong>" + Drupal.t("Name") + ":</strong> " + info.file_name +
+                        "</span>";
+                    }
+                    if (info.file_path) {
+                      html +=
+                        '<span class="media-light-table-image-filepath media-light-table-popup-field">' +
+                        "<strong>" + Drupal.t("Path") + ":</strong> " + info.file_path +
+                        "</span>";
+                    }
+                    if (sizeMb) {
+                      html +=
+                        '<span class="media-light-table-image-size media-light-table-popup-field">' +
+                        "<strong>" + Drupal.t("Size") + ":</strong> " + sizeMb +
+                        "</span>";
+                    }
+                    if (info.mime_type) {
+                      html +=
+                        '<span class="media-light-table-image-mime-type media-light-table-popup-field">' +
+                        "<strong>" + Drupal.t("MIME") + ":</strong> " + info.mime_type +
+                        "</span>";
+                    }
+                    if (info.width > 0 && info.height > 0) {
+                      html +=
+                        '<span class="media-light-table-image-dimensions media-light-table-popup-field">' +
+                        "<strong>" + Drupal.t("Dimensions") + ":</strong> " + info.width + "x" + info.height +
+                        "</span>";
+                    }
+                    if (info.bundle) {
+                      html +=
+                        '<span class="media-light-table-image-bundle media-light-table-popup-field">' +
+                        "<strong>" + Drupal.t("Media Type") + ":</strong> " + info.bundle +
+                        "</span>";
+                    }
+
+                    if (info.custom_fields) {
+                      Object.keys(info.custom_fields).forEach(function (fieldName) {
+                        const row = info.custom_fields[fieldName] || {};
+                        const label = row.label || fieldName;
+                        const value = row.value || "";
+                        if (value !== "") {
+                          html +=
+                            '<span class="media-light-table-image-field media-light-table-popup-field">' +
+                            "<strong>" + label + ":</strong> " + value +
+                            "</span>";
+                        }
+                      });
+                    }
+
+                    popup.innerHTML = html;
+                    wrapper.setAttribute("data-popup-loaded", "1");
+                  })
+                  .catch(function () {
+                    popup.innerHTML =
+                      '<span class="media-light-table-popup-error">' +
+                      Drupal.t("Error loading data.") +
+                      "</span>";
+                  });
+              }
+            }
+
             popup.style.display = "block";
             wrapper.style.zIndex = "1000";
 
@@ -109,56 +246,7 @@
                 document.body.appendChild(popup);
               }
 
-              // Positionner temporairement pour mesurer les dimensions
-              popup.style.position = "fixed";
-              popup.style.display = "block";
-              popup.style.visibility = "hidden";
-              const popupRect = popup.getBoundingClientRect();
-
-              // Calculer la position relative au wrapper
-              const wrapperRect = wrapper.getBoundingClientRect();
-              let left = wrapperRect.left + wrapperRect.width / 2;
-              let top = wrapperRect.bottom + 5;
-
-              const padding = 10; // Marge par rapport aux bords de l'écran
-              const maxWidth = window.innerWidth - (padding * 2);
-
-              // Vérifier et ajuster la largeur
-              let popupWidth = popupRect.width;
-              if (popupWidth > maxWidth) {
-                popupWidth = maxWidth;
-                popup.style.maxWidth = popupWidth + "px";
-                popup.style.overflowY = "auto";
-                popup.style.maxHeight = (window.innerHeight - padding * 2) + "px";
-              }
-
-              // Centrer horizontalement avec décalage (translateX(-50%))
-              // Vérifier les bords gauche et droit
-              const leftEdge = left - (popupWidth / 2);
-              const rightEdge = left + (popupWidth / 2);
-
-              if (leftEdge < padding) {
-                left = padding + (popupWidth / 2);
-              } else if (rightEdge > window.innerWidth - padding) {
-                left = window.innerWidth - padding - (popupWidth / 2);
-              }
-
-              // Vérifier le bord inférieur et ajuster vers le haut si nécessaire
-              if (top + popupRect.height > window.innerHeight - padding) {
-                top = wrapperRect.top - popupRect.height - 5;
-              }
-
-              // Vérifier le bord supérieur
-              if (top < padding) {
-                top = padding;
-              }
-
-              // Appliquer les positions finales
-              popup.style.visibility = "visible";
-              popup.style.top = top + "px";
-              popup.style.left = left + "px";
-              popup.style.transform = "translateX(-50%)";
-              popup.style.zIndex = "99999";
+              positionInfoPopup(popup, wrapper);
             }
           }
         });
@@ -193,36 +281,22 @@
               // Mettre à jour la position du popup au scroll
               const wrapper = p._originalWrapper;
               if (wrapper) {
-                const wrapperRect = wrapper.getBoundingClientRect();
-                const popupRect = p.getBoundingClientRect();
-                let left = wrapperRect.left + wrapperRect.width / 2;
-                let top = wrapperRect.bottom + 5;
+                positionInfoPopup(p, wrapper);
+              }
+            }
+          });
+      });
 
-                const padding = 10;
-                const popupWidth = p.offsetWidth || popupRect.width;
-
-                // Vérifier les limites horizontales
-                const leftEdge = left - (popupWidth / 2);
-                const rightEdge = left + (popupWidth / 2);
-
-                if (leftEdge < padding) {
-                  left = padding + (popupWidth / 2);
-                } else if (rightEdge > window.innerWidth - padding) {
-                  left = window.innerWidth - padding - (popupWidth / 2);
-                }
-
-                // Vérifier le bord inférieur et remontrer si nécessaire
-                if (top + popupRect.height > window.innerHeight - padding) {
-                  top = wrapperRect.top - popupRect.height - 5;
-                }
-
-                // Vérifier le bord supérieur
-                if (top < padding) {
-                  top = padding;
-                }
-
-                p.style.top = top + "px";
-                p.style.left = left + "px";
+      window.addEventListener("resize", function () {
+        document
+          .querySelectorAll(
+            ".media-drop-info-popup, .media-light-table-info-popup",
+          )
+          .forEach(function (p) {
+            if (p.style.display === "block" && p.parentElement === document.body) {
+              const wrapper = p._originalWrapper;
+              if (wrapper) {
+                positionInfoPopup(p, wrapper);
               }
             }
           });

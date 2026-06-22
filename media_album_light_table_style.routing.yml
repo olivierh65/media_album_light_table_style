@@ -1,3 +1,12 @@
+media_light_table_media_info:
+  path: '/media-light-table/media-info/{media_id}'
+  methods: ['GET']
+  defaults:
+    _controller: '\Drupal\media_album_light_table_style\Controller\MediaActionController::getMediaInfo'
+  requirements:
+    _permission: 'administer media'
+    media_id: \d+
+
 media_light_table_execute_action:
   path: '/media-light-table/execute-action'
   methods: ['POST']
