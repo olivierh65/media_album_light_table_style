@@ -9,3 +9,4 @@ dependencies:
   - drupal:taxonomy
   - drupal:views
   - media_album_av_common
+  - drupal:select2
