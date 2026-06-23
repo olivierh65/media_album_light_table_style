@@ -157,3 +157,73 @@
     },
   };
 })(jQuery, Drupal, drupalSettings, once);
+
+// Fixed bar for group actions
+(function ($, Drupal) {
+  Drupal.behaviors.mediaLightTableFixedBar = {
+    attach: function (context, settings) {
+      const content = document.querySelector('.light-table-content');
+      const bars = document.querySelectorAll('.draggable-flexgrid__group-info-action');
+
+      if (!content || !bars.length) return;
+
+      function syncWidth() {
+        const rect = content.getBoundingClientRect();
+        const scrollLeft = window.pageXOffset || document.documentElement.scrollLeft;
+
+        bars.forEach(bar => {
+          // Utiliser les coordonnées viewport (pas de scroll offset)
+          // pour position: fixed, getBoundingClientRect est parfait
+          bar.style.left = Math.max(0, rect.left) + 'px';
+          bar.style.width = Math.min(rect.width, window.innerWidth - Math.max(0, rect.left)) + 'px';
+          bar.style.right = 'auto';
+          bar.style.boxSizing = 'border-box';
+        });
+      }
+
+      syncWidth();
+      window.addEventListener('resize', syncWidth);
+      // Recalculer aussi au scroll horizontal (sidebar Drupal qui se réduit)
+      window.addEventListener('scroll', syncWidth);
+    }
+  };
+})(jQuery, Drupal);
+
+// toggle collapsible groups and save state in sessionStorage
+(function ($, Drupal) {
+  Drupal.behaviors.mediaLightTableCollapsible = {
+    attach: function (context, settings) {
+      const headers = context.querySelectorAll(
+        '.media-light-table-group-wrapper .media-light-table-group-header'
+      );
+
+      headers.forEach(function (header) {
+        if (header.dataset.collapseInit) return;
+        header.dataset.collapseInit = '1';
+
+        header.addEventListener('click', function () {
+          const wrapper = header.closest('.media-light-table-group-wrapper');
+          wrapper.classList.toggle('is-collapsed');
+
+          const level = wrapper.dataset.level;
+          const title = wrapper.querySelector('.media-light-table-group-title')?.textContent.trim();
+          const key = 'mlt_collapsed_' + level + '_' + title;
+          if (wrapper.classList.contains('is-collapsed')) {
+            sessionStorage.setItem(key, '1');
+          } else {
+            sessionStorage.removeItem(key);
+          }
+        });
+
+        // Restaurer l'état
+        const wrapper = header.closest('.media-light-table-group-wrapper');
+        const level = wrapper.dataset.level;
+        const title = wrapper.querySelector('.media-light-table-group-title')?.textContent.trim();
+        const key = 'mlt_collapsed_' + level + '_' + title;
+        if (sessionStorage.getItem(key)) {
+          wrapper.classList.add('is-collapsed');
+        }
+      });
+    }
+  };
+})(jQuery, Drupal);

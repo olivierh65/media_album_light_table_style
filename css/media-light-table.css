@@ -127,6 +127,45 @@
   font-weight: 600;
 }
 
+/* Collapsible - curseur sur le header */
+.media-light-table-group-header {
+  cursor: pointer;
+  user-select: none;
+}
+
+/* Flèche indicateur - s'ajoute après les éléments existants */
+.media-light-table-group-header::after {
+  content: '▾';
+  color: #0073aa;
+  transition: transform 0.2s ease;
+  flex-shrink: 0;
+  margin-left: 0.5rem;
+  display: inline-block; /* nécessaire pour que transform fonctionne */
+  transform: scale(2.5);
+  line-height: 0; /* évite l'impact sur la hauteur de ligne */
+}
+
+/* Rotation quand replié */
+.media-light-table-group-wrapper.is-collapsed .media-light-table-group-header::after {
+  transform: scale(2.5) rotate(-90deg);
+}
+
+/* Masquer le contenu quand replié */
+.media-light-table-group-wrapper.is-collapsed .media-light-table-group-content {
+  display: none;
+}
+
+/* Supprimer la border-bottom du header quand replié (plus propre) */
+.media-light-table-group-wrapper.is-collapsed .media-light-table-group-header {
+  border-bottom: none;
+  border-radius: 4px;
+}
+
+/* Masquer le nom du groupe quand replié */
+.media-light-table-group-wrapper.is-collapsed .media-light-table-grouping-name {
+  display: none;
+}
+
 .media-light-table-group-commands {
   display: flex;
   gap: 0.5rem;
@@ -153,7 +192,6 @@
   width: 100%;
 }
 
-.draggable-flexgrid__grid,
 .media-light-table-album-container {
   display: flex !important;
   flex-wrap: wrap;
@@ -167,20 +205,17 @@
   min-height: 80px;
 }
 
-.draggable-flexgrid__grid:hover,
 .media-light-table-album-container:hover {
   border-color: #999;
   background-color: #fafafa;
 }
 
-.draggable-flexgrid__grid.gu-mirror,
 .media-light-table-album-container.gu-mirror {
   opacity: 1 !important;
   z-index: 999;
   box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
 }
 
-.draggable-flexgrid__grid.gu-over,
 .media-light-table-album-container.gu-over {
   border-color: #0073aa !important;
   border-style: solid !important;
@@ -188,7 +223,6 @@
   box-shadow: inset 0 0 10px rgba(0, 115, 170, 0.1);
 }
 
-.draggable-flexgrid__grid.empty-state,
 .media-light-table-album-container.empty-state {
   display: flex;
   align-items: center;
@@ -199,7 +233,6 @@
   border-color: #ddd;
 }
 
-.draggable-flexgrid__grid.empty-state::before,
 .media-light-table-album-container.empty-state::before {
   content: "Drop media here";
   color: #999;

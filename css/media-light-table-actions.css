@@ -1,11 +1,30 @@
 /**
  * Layout for group info-action: counter on left, actions on right
  */
-.draggable-flexgrid__group-info-action {
+.media-light-table-group-info-action {
+  /* display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 1rem; */
+  /* get actions toolbar to stick to top of viewport when scrolling */
+  position: fixed;
+  top: var(--drupal-displace-offset-top, 80px);
+  z-index: 500;
+  background-color: #45a0cbe0;
+  border-radius: 1rem;
+  border-width: 4px;
+  border-color: #4530ef;
+  border-style: dashed;
+  padding: 0.5rem 1.0rem;
   display: flex;
   align-items: center;
   gap: 1rem;
-  margin-bottom: 1rem;
+  margin-bottom: 0;
+
+   /* Responsive */
+  flex-wrap: wrap;        /* permet le retour à la ligne */
+  max-width: 100%;        /* ne dépasse pas la largeur de l'écran */
+  box-sizing: border-box; /* padding inclus dans la largeur */
 }
 
 .media-light-table-group-info {
@@ -14,11 +33,11 @@
   align-items: center;
 }
 
-.draggable-flexgrid__group-action {
-  flex: 0 0 auto;
-  margin-left: auto;
+.media-light-table-group-action {
+  flex: 1 1 auto; /* prend l'espace restant plutôt que de disparaître */
   display: flex;
   align-items: center;
+  min-width: 0;   /* permet la réduction si nécessaire */
 }
 
 /**
@@ -28,6 +47,9 @@
   display: flex;
   align-items: center;
   gap: 0.5rem;
+  flex-wrap: wrap; /* le select et le bouton peuvent aussi passer à la ligne */
+  width: 100%;
+  justify-content: flex-end; /* colle le tout à droite */
 }
 
 .media-light-table-actions-toolbar .js-form-item {
@@ -35,5 +57,11 @@
   margin: 0;
 }
 
+.media-light-table-actions-toolbar .form-select {
+  width: auto; /* le select remplit son conteneur */
+}
+
 .media-light-table-actions-toolbar .media-light-table-execute-action {
-margin-left: auto; }
+  flex: 0 0 auto; /* le bouton garde sa taille */
+  white-space: nowrap;
+}

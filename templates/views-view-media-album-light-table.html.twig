@@ -142,7 +142,6 @@
 {% endmacro %}
 
 {# Macro to recursively render groups #}
-{# Macro to recursively render groups #}
 {% macro render_group_recursive(group, columns, gap, field_mapping_config, view, options) %}
 	{# Only render the group wrapper if it has content #}
 	{% if group.albums|length > 0 or (group.subgroups and group.subgroups|length > 0) %}
