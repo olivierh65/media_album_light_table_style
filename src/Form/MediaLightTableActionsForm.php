@@ -66,12 +66,10 @@ class MediaLightTableActionsForm extends FormBase {
       ],
     ];
 
-    // On déplace votre counter_wrapper existant dans cette nouvelle DIV.
     $form['info_action_wrapper']['group_info']['counter_wrapper'] = [
       '#type' => 'container',
       '#attributes' => [
         'class' => ['media-light-table-group-counter-wrapper'],
-    // Correction: style est une chaîne, pas un tableau.
         'style' => 'display: none',
       ],
     ];
@@ -81,6 +79,18 @@ class MediaLightTableActionsForm extends FormBase {
       '#tag' => 'span',
       '#attributes' => [
         'class' => ['media-light-table-group-selection-counter'],
+      ],
+    ];
+
+    $form['info_action_wrapper']['group_info']['counter_wrapper']['deselect_all'] = [
+      '#type' => 'button',
+      '#value' => $this->t('✕'),
+      '#attributes' => [
+        'class' => ['media-light-table-deselect-all', 'button'],
+        'data-album-grp' => $album_grp,
+        'title' => $this->t('Désélectionner tout'),
+    // évite le submit.
+        'type' => 'button',
       ],
     ];
 

@@ -65,3 +65,20 @@
   flex: 0 0 auto; /* le bouton garde sa taille */
   white-space: nowrap;
 }
+
+.media-light-table-deselect-all {
+  padding: 0.15rem 0.5rem;
+  font-size: 0.85rem;
+  line-height: 1;
+  border-radius: 50%;
+  min-width: 0;
+  color: #0073aa;
+  border-color: #0073aa;
+  background: transparent;
+  cursor: pointer;
+}
+
+.media-light-table-deselect-all:hover {
+  background: #0073aa;
+  color: #fff;
+}

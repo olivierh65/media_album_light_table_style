@@ -668,6 +668,42 @@
         },
       );
 
+      // --- Deselect all ---
+      once(
+        "media-deselect-all",
+        ".media-light-table-deselect-all",
+        context,
+      ).forEach((btn) => {
+        btn.addEventListener("click", function (e) {
+          e.preventDefault();
+          e.stopPropagation();
+
+          const albumGrp = btn.dataset.albumGrp;
+          const albumView =
+            btn.closest(groupContainerClass) ||
+            document.querySelector(
+              `${groupContainerClass}[data-album-grp="${albumGrp}"]`,
+            );
+          if (!albumView) return;
+
+          albumView
+            .querySelectorAll(
+              `${gridContainerClass}[data-album-grp="${albumGrp}"]`,
+            )
+            .forEach((grid) => {
+              const sortableInstance = grid._sortableInstance || null;
+              grid
+                .querySelectorAll(`${mediaItemClass}.${selectedClass}`)
+                .forEach((item) => {
+                  item.classList.remove(selectedClass);
+                  if (sortableInstance) Sortable.utils.deselect(item);
+                });
+            });
+
+          updateSelectionCountForGroup(albumView, albumGrp);
+        });
+      });
+
       // --- Exécution d'action (déplacement ET tri) ---
       // FONCTIONNEMENT MIXTE (PHP + JavaScript):
       // - PHP: gère le state 'disabled' du bouton par rapport au select d'action (value === 'none')
