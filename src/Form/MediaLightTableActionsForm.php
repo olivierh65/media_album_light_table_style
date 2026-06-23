@@ -96,7 +96,7 @@ class MediaLightTableActionsForm extends FormBase {
 
     $form['info_action_wrapper']['group_info']['counter_wrapper']['save_button'] = [
       '#type' => 'submit',
-      '#value' => $this->t('Sauvegarder l\'ordre'),
+      '#value' => $this->t('Sauvegarder l\'album'),
      // To identify the button in the ajax prepare function.
     // '#name' => 'save-button-' . $album_grp,.
       '#id' => 'save-button-' . $album_grp,

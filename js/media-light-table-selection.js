@@ -598,6 +598,45 @@
             });
           });
 
+          // --- Suppression de média ---
+          once(
+            "media-light-table-remove",
+            ".media-light-table-remove-trigger",
+            context,
+          ).forEach((removeBtn) => {
+            removeBtn.addEventListener("click", function (e) {
+              e.preventDefault();
+              e.stopPropagation();
+              e.stopImmediatePropagation();
+
+              const mediaItem = removeBtn.closest(mediaItemClass);
+              const grid = removeBtn.closest(gridContainerClass);
+              if (!mediaItem || !grid) return;
+
+              const albumGrp = grid.dataset.albumGrp;
+              const albumView =
+                removeBtn.closest(groupContainerClass) ||
+                document.querySelector(
+                  `${groupContainerClass}[data-album-grp="${albumGrp}"]`,
+                );
+
+              // Animation de suppression
+              mediaItem.style.transition =
+                "opacity 0.2s ease, transform 0.2s ease";
+              mediaItem.style.opacity = "0";
+              mediaItem.style.transform = "scale(0.8)";
+
+              setTimeout(() => {
+                mediaItem.remove();
+                // Marquer comme modifié pour activer le bouton de sauvegarde
+                reorganizationState[albumGrp] = true;
+                if (albumView && albumGrp) {
+                  updateSelectionCountForGroup(albumView, albumGrp);
+                }
+              }, 200);
+            });
+          });
+          
           // --- Drag & drop ---
           allGrids.forEach((grid) => {
             const sortableInstance = grid._sortableInstance;

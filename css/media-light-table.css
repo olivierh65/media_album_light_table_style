@@ -685,6 +685,16 @@
   transform: scale(1.05);
 }
 
+.media-light-table-remove-trigger {
+  color: #cc0000;
+  border-color: #cc0000;
+}
+
+.media-light-table-remove-trigger:hover {
+  background-color: #cc0000;
+  color: #fff;
+}
+
 .media-drop-drag-icon,
 .media-light-table-drag-icon {
   z-index: 10;
