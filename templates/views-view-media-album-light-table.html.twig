@@ -42,7 +42,7 @@
 						{# Ajouter les paramètres de sécurité à l'URL #}
 						{% set security_query = 's_t=' ~ s_token ~ '&s_id=' ~ s_id ~ '&n_id=' ~ n_id %}
 						{% set url_sep = (thumbnail.thumbnail_url|split('?')|length > 1) ? '&' : '?' %}
-						<img src="{{ thumbnail.thumbnail_url }}{{ url_sep }}{{ security_query }}&m_id={{ infos.id }}" loading="lazy" alt="{{ image_alt }}" title="{{ infos.label }} ({{ 'ID' }}: {{ infos.id }})" width="{{ thumbnail.thumbnail_width }}" height="{{ thumbnail.thumbnail_height }}" class="draggable-flexgrid__image media-light-table-image"/>
+						<img src="{{ thumbnail.thumbnail_url }}{{ url_sep }}{{ security_query }}&m_id={{ infos.id }}" loading="lazy" alt="{{ image_alt }}" title="{{ infos.label }} ({{ 'ID' }}: {{ infos.id }})" width="{{ thumbnail.thumbnail_width }}" height="{{ thumbnail.thumbnail_height }}" class="media-album-av-thumbnail draggable-flexgrid__image media-light-table-image"/>
 					</span>
 				</div>
 			</div>

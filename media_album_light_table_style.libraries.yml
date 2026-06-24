@@ -24,6 +24,7 @@ media-light-table:
     - core/drupal
     - core/once
     - media_album_av_common/sortablejs
+    - media_album_av_common/image-throttle
 
 media-light-table-actions:
   version: 1.x
